@@ -13,6 +13,8 @@ Skills, packaging, or devcontainer behavior that may have changed.
 | Agent Skills | <https://agentskills.io/specification> | Skill layout and frontmatter |
 | uv build backend | <https://docs.astral.sh/uv/configuration/build-backend/> | Package and data-file inclusion |
 | Dev Containers | <https://containers.dev/implementors/json_reference/> | Development container properties |
+| GitHub container publishing | <https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images> | GHCR authentication, permissions, and image publication; verified 2026-08-18 |
+| PyPI publish Action | <https://github.com/pypa/gh-action-pypi-publish> | Trusted publishing and isolated publish jobs; verified 2026-08-18 |
 
 ## Project Methods
 

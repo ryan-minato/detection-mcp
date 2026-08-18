@@ -41,3 +41,17 @@ Before every commit:
 
 Never paste the leaked value into an issue, pull request, commit message, log, or
 chat response.
+
+## Release Automation
+
+- `.github/workflows/publish-container.yml` publishes
+  `ghcr.io/<owner>/<repository>` after pushes to `main` and after version tags
+  matching `v*.*.*`. The default branch produces only `latest`; version tags
+  produce semantic-version image tags.
+- Container publishing uses the repository `GITHUB_TOKEN` with only
+  `contents: read` and `packages: write` permissions. Third-party Actions must
+  remain pinned to full commit SHAs.
+- `.github/workflows/publish-pypi.yml` is intentionally disabled at both the
+  build and publish jobs. Enabling it requires an explicit project decision and a
+  configured PyPI trusted-publishing environment; do not remove either guard as
+  part of unrelated work.
