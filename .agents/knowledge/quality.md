@@ -1,7 +1,69 @@
 # Quality Gates
 
-Read this file when changing tests, validation scripts, hooks, CI, dependencies,
-or release checks.
+Read this file when changing behavior, implementation, tests, validation scripts,
+hooks, CI, dependencies, or release checks.
+
+## Test-Driven Development
+
+Use test-driven development for features, bug fixes, and behavior changes. Work
+through one vertical slice at a time instead of writing all tests or all
+implementation in separate batches:
+
+1. **Define the seam.** Identify the public interface where callers observe the
+   behavior and state the behavior in caller-facing language. Use an existing
+   approved interface when possible; ask the user only when the interface or seam
+   is materially ambiguous.
+2. **Red.** Add one focused test for that observable behavior. Run the narrowest
+   relevant test command and confirm it fails for the expected missing behavior,
+   not because of a syntax, fixture, or environment error.
+3. **Green.** Add only the production code needed to pass that test. Run the
+   focused test, then the related test group. Do not anticipate later slices or
+   add speculative behavior.
+4. **Review and refactor.** Refactor only after the slice is green. Preserve the
+   tested behavior, improve comments and names where needed, and rerun the
+   affected tests after every refactor.
+5. Repeat the cycle for the next behavior, then run the complete quality gate.
+
+For bug fixes, the red test must reproduce the reported defect before the fix is
+implemented. For behavior-preserving refactors, first establish a green baseline;
+add a characterization test when the behavior is not already protected.
+
+Documentation-only, comment-only, and non-behavioral metadata changes do not need
+a deliberately failing test, but they still require the relevant validation.
+Exploratory code may be used to learn, but discard it before implementation and
+restart from a failing test.
+
+Record the tested seam, the expected red failure, and the commands that produced
+the final green result in the work handoff or pull request. Never weaken, delete,
+or skip a valid test merely to make the implementation green.
+
+### Test Design
+
+- Test behavior through public interfaces. Do not test private methods, assert
+  internal call order, or inspect storage through a side channel when the public
+  interface can demonstrate the result.
+- Name tests as caller-visible specifications and use expected values from the
+  requirements, a worked example, or another independent source of truth. Do not
+  recompute the expected value with the same algorithm as the implementation.
+- Keep each test focused on one logical behavior. Multiple assertions are
+  acceptable when they describe one observable outcome.
+- Prefer real project collaborators, temporary directories, and temporary SQLite
+  databases. Mock only true system boundaries such as external services, time,
+  randomness, or an unavoidable filesystem boundary; do not mock the project's
+  own modules to verify their interactions.
+
+## Code Comments and Docstrings
+
+- Module-internal objects need at most a concise one-line comment or docstring
+  stating their purpose when that purpose is not already clear from the name.
+- Interfaces used by other modules must have docstrings that describe their
+  purpose, parameters, return value, relevant notes or invariants, and raised
+  errors. Include only applicable sections, but do not omit behavior callers need
+  to use the interface safely.
+- For long code blocks, add comments at logical phase boundaries to explain intent,
+  invariants, or non-obvious constraints. Do not narrate individual statements.
+- Keep comments synchronized with behavior. Remove stale, redundant, or misleading
+  comments in the same change that makes them inaccurate.
 
 ## Local Commit Gate
 

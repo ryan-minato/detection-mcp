@@ -21,6 +21,8 @@ scripts/              Repository validation commands
   repositories own SQLite statements.
 - Write code, comments, agent-facing files, commits, issues, and pull requests in
   English. Keep `README.md` and `README.zh-CN.md` synchronized.
+- Develop behavior changes test-first and follow the comment and docstring rules
+  in `.agents/knowledge/quality.md`.
 - Never modify, move, rename, or delete dataset images. Resolve and validate paths
   before opening them, including symlink targets.
 - Write protocol output only to stdout. Send logs and diagnostics to stderr.
@@ -33,7 +35,7 @@ scripts/              Repository validation commands
 |---|---|
 | Scoping work or checking v1 boundaries | `.agents/knowledge/goals.md` |
 | Changing modules, dependencies, storage, or data flow | `.agents/knowledge/architecture.md` |
-| Adding or changing validation, tests, hooks, or CI | `.agents/knowledge/quality.md` |
+| Changing behavior, implementation, tests, validation, hooks, or CI | `.agents/knowledge/quality.md` |
 | Creating commits, branches, issues, or pull requests | `.agents/knowledge/workflow.md` |
 | Using or upgrading FastMCP, MCP, AutoTrain, or Agent Skills | `.agents/knowledge/references.md` |
 | Changing detailed product behavior | `docs/requirements.zh-CN.md` |
