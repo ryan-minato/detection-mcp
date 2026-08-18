@@ -1,5 +1,8 @@
 title = "PII Rules: Email and IP Address"
 
+[extend]
+useDefault = true
+
 # Block emails, allow only GitHub/GitLab anonymous addresses
 [[rules]]
 id = "restrict-non-anonymous-emails"

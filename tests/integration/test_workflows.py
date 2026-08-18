@@ -1,6 +1,7 @@
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any, cast
 
@@ -84,3 +85,9 @@ def test_devcontainer_installs_all_hooks_from_locked_environment() -> None:
     standard_hooks = pre_commit["repos"][0]["hooks"]
     check_json = next(hook for hook in standard_hooks if hook["id"] == "check-json")
     assert check_json["exclude"] == r"^\.devcontainer/devcontainer\.json$"
+
+
+def test_gitleaks_extends_default_secret_rules() -> None:
+    config = tomllib.loads((ROOT / ".gitleaks.toml").read_text())
+
+    assert config["extend"]["useDefault"] is True
