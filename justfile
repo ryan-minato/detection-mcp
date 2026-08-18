@@ -63,7 +63,7 @@ docker-build:
 
 # Run tests that require a container runtime.
 docker-test:
-    uv run pytest -m docker
+    uv run pytest -m docker --run-docker
 
 # Smoke-test an already built container image.
 docker-smoke image="detection-mcp:local":

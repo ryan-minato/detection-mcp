@@ -18,12 +18,12 @@ ENV PATH="/opt/detection-mcp/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     DETECTION_MCP_DB_PATH=/state/annotations.db \
     DETECTION_MCP_ALLOWED_DATASET_ROOTS=/datasets \
-    DETECTION_MCP_ALLOWED_EXPORT_ROOTS=/exports
+    DETECTION_MCP_ALLOWED_EXPORT_ROOTS=/output
 
 RUN groupadd --system detection-mcp \
     && useradd --system --gid detection-mcp --home-dir /nonexistent --shell /usr/sbin/nologin detection-mcp \
-    && mkdir --parents /state /exports \
-    && chown detection-mcp:detection-mcp /state /exports
+    && mkdir --parents /state /output \
+    && chown detection-mcp:detection-mcp /state /output
 
 COPY --from=builder /opt/detection-mcp /opt/detection-mcp
 

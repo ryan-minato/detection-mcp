@@ -10,8 +10,8 @@ services:
         target: /datasets
         read_only: true
       - type: bind
-        source: ${DETECTION_MCP_EXPORT_PATH:?Set DETECTION_MCP_EXPORT_PATH}
-        target: /exports
+        source: ${DETECTION_MCP_OUTPUT_PATH:?Set DETECTION_MCP_OUTPUT_PATH}
+        target: /output
       - type: volume
         source: detection-mcp-state
         target: /state
