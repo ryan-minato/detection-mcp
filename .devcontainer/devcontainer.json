@@ -10,7 +10,7 @@
 		"ghcr.io/devcontainers/features/git-lfs:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
 		"ghcr.io/stacit-ai/devcontainer-features/uv:1": {
-			"toolsToInstall": "pre-commit"
+			"toolsToInstall": "pre-commit,rust-just"
 		}
 	},
 	"postCreateCommand": "pre-commit install && pre-commit autoupdate"
