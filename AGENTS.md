@@ -59,6 +59,7 @@ external state; do not call that tool without explicit user approval.
 | Lint | `uv run ruff check .` |
 | Types | `uv run ty check` |
 | Tests | `uv run pytest` |
+| CI quality controls | `just quality-control` |
 | Complete local gate | `uv run python scripts/quality.py` |
 | Repository hooks | `uv run pre-commit run --all-files --show-diff-on-failure` |
 

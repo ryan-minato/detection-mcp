@@ -75,6 +75,7 @@ See the complete [tool reference](docs/tool-reference.md) and [export format](do
 ```bash
 just sync       # synchronize the locked environment
 just test       # run ordinary tests
+just quality-control # run CI checks without tests
 just quality    # run the complete local commit gate
 just hooks      # run repository hooks against tracked files
 just check      # run quality and hooks

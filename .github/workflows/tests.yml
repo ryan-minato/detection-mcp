@@ -1,25 +1,30 @@
-name: CI
+name: Tests
 
 on:
   pull_request:
   push:
     branches: [main]
 
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
-  quality:
-    name: Quality (Python ${{ matrix.python-version }})
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - name: Check out repository
+      - name: Check out latest commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -34,16 +39,17 @@ jobs:
         uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
       - name: Synchronize locked environment
         run: just sync
-      - name: Run complete quality gate
-        run: just quality
+      - name: Run tests with coverage
+        run: just test-cov
 
   package:
     name: Clean wheel install
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out latest commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -66,10 +72,13 @@ jobs:
     name: Container build and smoke test
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out latest commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Build runtime image
@@ -80,6 +89,4 @@ jobs:
           push: false
           tags: detection-mcp:local
       - name: Verify runtime and bundled Skills
-        run: |
-          docker run --rm detection-mcp:local --version
-          docker run --rm detection-mcp:local --skills-path
+        run: just docker-smoke

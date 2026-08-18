@@ -47,6 +47,9 @@ sensitive *args:
 quality:
     uv run python scripts/quality.py
 
+# Run CI quality controls without the test suite.
+quality-control: format-check lint typecheck skills build sensitive
+
 # Run all repository hooks against tracked files.
 hooks:
     uv run pre-commit run --all-files --show-diff-on-failure
@@ -61,3 +64,8 @@ docker-build:
 # Run tests that require a container runtime.
 docker-test:
     uv run pytest -m docker
+
+# Smoke-test an already built container image.
+docker-smoke image="detection-mcp:local":
+    docker run --rm {{image}} --version
+    docker run --rm {{image}} --skills-path

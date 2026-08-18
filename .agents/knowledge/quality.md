@@ -20,10 +20,16 @@ Failures block the commit; fix the cause and rerun the complete gate.
 
 ## Pull Request Gate
 
-Required CI repeats the local gate, tests supported Python versions, installs the
-built wheel in a clean environment, exercises a real STDIO client, and runs Docker
-mount and persistence scenarios. Security jobs scan repository history in addition
-to the staged-content checks used locally.
+CI separates inexpensive quality controls from tests:
+
+- `quality.yml` runs `just quality-control` for every pushed commit on every
+  branch. Pull requests from forks receive the same check through the pull request
+  event.
+- `tests.yml` runs only for pull requests and pushes to the default branch. Pull
+  request runs use the head SHA and cancel older in-progress runs for the same PR,
+  so expensive tests run only for its latest commit.
+- Test CI covers supported Python versions, a clean wheel install, and the runtime
+  container smoke test. Security CI scans repository history separately.
 
 ## Test Shape
 

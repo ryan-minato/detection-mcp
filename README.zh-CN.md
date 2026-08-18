@@ -75,6 +75,7 @@ Server 使用 STDIO：协议消息写入 stdout，日志写入 stderr。CLI 参�
 ```bash
 just sync       # 同步锁定的开发环境
 just test       # 运行常规测试
+just quality-control # 运行不含测试的 CI 质量检查
 just quality    # 运行完整本地提交门禁
 just hooks      # 对全部跟踪文件运行仓库 hooks
 just check      # 依次运行 quality 和 hooks
