@@ -71,9 +71,15 @@ def test_discovery_sorting_decode_failure_and_preview_overlay(tmp_path: Path) ->
         maximum_height=80,
         allow_upscale=True,
         annotations=[
-            {"id": 1, "category_id": 2, "category_name": "box", "type": "bbox", "geometry": [0.1, 0.1, 0.5, 0.5]},
             {
-                "id": 2,
+                "annotation_id": 1,
+                "category_id": 2,
+                "category_name": "box",
+                "type": "bbox",
+                "geometry": [0.1, 0.1, 0.5, 0.5],
+            },
+            {
+                "annotation_id": 2,
                 "category_id": 2,
                 "category_name": "rotated",
                 "type": "rotated_bbox",

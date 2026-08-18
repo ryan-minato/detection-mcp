@@ -18,6 +18,13 @@ def row_dict(row: sqlite3.Row) -> dict[str, Any]:
     return dict(row)
 
 
+def _public_record(row: sqlite3.Row, id_field: str) -> dict[str, Any]:
+    """Rename an internal row ID for a stable public record."""
+    result = row_dict(row)
+    result[id_field] = result.pop("id")
+    return result
+
+
 def inserted_id(cursor: sqlite3.Cursor) -> int:
     """Return the row identifier created by an INSERT statement.
 
@@ -159,6 +166,16 @@ class Repository:
         return row
 
     @staticmethod
+    def dataset_dict(row: sqlite3.Row) -> dict[str, Any]:
+        """Convert a dataset row to its public field names."""
+        return _public_record(row, "dataset_id")
+
+    @staticmethod
+    def category_dict(row: sqlite3.Row) -> dict[str, Any]:
+        """Convert a category row to its public field names."""
+        return _public_record(row, "category_id")
+
+    @staticmethod
     def annotation_dict(row: sqlite3.Row) -> dict[str, Any]:
         """Convert an annotation row and decode its geometry.
 
@@ -171,6 +188,6 @@ class Repository:
         Raises:
             json.JSONDecodeError: If persisted geometry is invalid JSON.
         """
-        result = row_dict(row)
+        result = _public_record(row, "annotation_id")
         result["geometry"] = json.loads(result.pop("geometry_json"))
         return result

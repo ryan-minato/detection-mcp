@@ -81,7 +81,7 @@ def render_preview(
                 polygon = [(geometry[index] * width, geometry[index + 1] * height) for index in range(0, 8, 2)]
                 draw.line([*polygon, polygon[0]], fill=color, width=line_width)
                 label_at = polygon[0]
-            label = f"[{annotation['id']}] {annotation['category_name']}"
+            label = f"[{annotation['annotation_id']}] {annotation['category_name']}"
             label_box = draw.textbbox(label_at, label)
             draw.rectangle(label_box, fill=color)
             draw.text(label_at, label, fill=(0, 0, 0))

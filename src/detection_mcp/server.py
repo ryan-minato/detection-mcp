@@ -12,10 +12,34 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools import ToolResult
 from mcp.types import ImageContent, TextContent
+from pydantic import BaseModel
 
 from detection_mcp.config import Settings
 from detection_mcp.errors import DomainError, ErrorCode
-from detection_mcp.models import AnnotationType, BBoxCreate, CategoryCreate, ExportMode, ImageStatus, RotatedBBoxCreate
+from detection_mcp.models import (
+    AnnotationBatch,
+    AnnotationList,
+    AnnotationPreviewMetadata,
+    AnnotationRecord,
+    AnnotationType,
+    BBoxCreate,
+    CategoryCreate,
+    CategoryList,
+    CategoryRecord,
+    DatasetList,
+    DatasetRecord,
+    DeletedAnnotations,
+    ExportMode,
+    ExportRecord,
+    ImageList,
+    ImageStatus,
+    ImageStatusRecord,
+    PreviewMetadata,
+    RotatedAnnotationBatch,
+    RotatedAnnotationRecord,
+    RotatedBBoxCreate,
+    SuccessEnvelope,
+)
 from detection_mcp.services.application import Application
 
 LOGGER = logging.getLogger(__name__)
@@ -80,14 +104,18 @@ class DomainErrorMiddleware(Middleware):
             )
 
 
-def _success(data: dict[str, Any]) -> dict[str, Any]:
-    """Wrap application data in the stable MCP success envelope."""
-    return {"ok": True, "data": data}
+def _success[ResponseT: BaseModel](model: type[ResponseT], data: dict[str, Any]) -> SuccessEnvelope[ResponseT]:
+    """Validate application data and wrap it in a typed success envelope."""
+    return SuccessEnvelope[ResponseT](data=model.model_validate(data))
 
 
-def _preview_result(image: bytes, metadata: dict[str, Any]) -> ToolResult:
+def _preview_result[ResponseT: BaseModel](
+    image: bytes,
+    model: type[ResponseT],
+    metadata: dict[str, Any],
+) -> ToolResult:
     """Combine PNG content and metadata into a FastMCP tool result."""
-    payload = {"ok": True, "data": metadata}
+    payload = _success(model, metadata).model_dump(mode="json")
     return ToolResult(
         content=[
             ImageContent(type="image", data=base64.b64encode(image).decode("ascii"), mimeType="image/png"),
@@ -119,7 +147,7 @@ def create_server(settings: Settings) -> FastMCP:
     mcp.add_middleware(DomainErrorMiddleware())
 
     @mcp.tool
-    def create_dataset(root_path: str, name: str | None = None) -> dict[str, Any]:
+    def create_dataset(root_path: str, name: str | None = None) -> SuccessEnvelope[DatasetRecord]:
         """Register a dataset root without changing any source image.
 
         Args:
@@ -135,10 +163,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             The resolved root path is stored; no source file is written or moved.
         """
-        return _success(application.create_dataset(root_path, name))
+        return _success(DatasetRecord, application.create_dataset(root_path, name))
 
     @mcp.tool
-    def delete_dataset(dataset_id: int) -> dict[str, Any]:
+    def delete_dataset(dataset_id: int) -> SuccessEnvelope[DatasetRecord]:
         """Soft-delete a dataset and preserve all related state.
 
         Args:
@@ -153,10 +181,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Deletion is idempotent and never affects source images.
         """
-        return _success(application.delete_dataset(dataset_id))
+        return _success(DatasetRecord, application.delete_dataset(dataset_id))
 
     @mcp.tool
-    def restore_dataset(dataset_id: int) -> dict[str, Any]:
+    def restore_dataset(dataset_id: int) -> SuccessEnvelope[DatasetRecord]:
         """Restore a soft-deleted dataset record.
 
         Args:
@@ -171,10 +199,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Restoration changes only stored annotation state.
         """
-        return _success(application.restore_dataset(dataset_id))
+        return _success(DatasetRecord, application.restore_dataset(dataset_id))
 
     @mcp.tool
-    def list_datasets(include_deleted: bool = False) -> dict[str, Any]:
+    def list_datasets(include_deleted: bool = False) -> SuccessEnvelope[DatasetList]:
         """List registered datasets.
 
         Args:
@@ -189,10 +217,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Results are ordered by stable dataset identifier.
         """
-        return _success(application.list_datasets(include_deleted))
+        return _success(DatasetList, application.list_datasets(include_deleted))
 
     @mcp.tool
-    def get_dataset(dataset_id: int) -> dict[str, Any]:
+    def get_dataset(dataset_id: int) -> SuccessEnvelope[DatasetRecord]:
         """Get dataset metadata, including a deleted dataset.
 
         Args:
@@ -207,10 +235,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Deletion state does not hide a directly requested record.
         """
-        return _success(application.get_dataset(dataset_id))
+        return _success(DatasetRecord, application.get_dataset(dataset_id))
 
     @mcp.tool
-    def add_categories(dataset_id: int, categories: list[CategoryCreate]) -> dict[str, Any]:
+    def add_categories(dataset_id: int, categories: list[CategoryCreate]) -> SuccessEnvelope[CategoryList]:
         """Add categories atomically to an active dataset.
 
         Args:
@@ -227,7 +255,7 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             One invalid category rolls back the complete batch.
         """
-        return _success(application.add_categories(dataset_id, categories))
+        return _success(CategoryList, application.add_categories(dataset_id, categories))
 
     @mcp.tool
     def edit_category(
@@ -235,7 +263,7 @@ def create_server(settings: Settings) -> FastMCP:
         category_id: int,
         name: str | None = None,
         description: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[CategoryRecord]:
         """Change a category name or authoritative description.
 
         Args:
@@ -254,10 +282,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Omitted fields retain their existing values.
         """
-        return _success(application.edit_category(dataset_id, category_id, name, description))
+        return _success(CategoryRecord, application.edit_category(dataset_id, category_id, name, description))
 
     @mcp.tool
-    def delete_category(dataset_id: int, category_id: int) -> dict[str, Any]:
+    def delete_category(dataset_id: int, category_id: int) -> SuccessEnvelope[CategoryRecord]:
         """Soft-delete a category and retain historical annotations.
 
         Args:
@@ -273,14 +301,14 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Existing annotations remain stored for history and restoration.
         """
-        return _success(application.delete_category(dataset_id, category_id))
+        return _success(CategoryRecord, application.delete_category(dataset_id, category_id))
 
     @mcp.tool
     def restore_category(
         dataset_id: int,
         category_id: int,
         new_name: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[CategoryRecord]:
         """Restore a category, optionally under a new name.
 
         Args:
@@ -298,10 +326,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Omit ``new_name`` to reuse the category's stored name.
         """
-        return _success(application.restore_category(dataset_id, category_id, new_name))
+        return _success(CategoryRecord, application.restore_category(dataset_id, category_id, new_name))
 
     @mcp.tool
-    def list_categories(dataset_id: int, include_deleted: bool = False) -> dict[str, Any]:
+    def list_categories(dataset_id: int, include_deleted: bool = False) -> SuccessEnvelope[CategoryList]:
         """List categories for a dataset.
 
         Args:
@@ -317,10 +345,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Results are ordered by stable category identifier.
         """
-        return _success(application.list_categories(dataset_id, include_deleted))
+        return _success(CategoryList, application.list_categories(dataset_id, include_deleted))
 
     @mcp.tool
-    def get_category(dataset_id: int, category_id: int) -> dict[str, Any]:
+    def get_category(dataset_id: int, category_id: int) -> SuccessEnvelope[CategoryRecord]:
         """Get a category, including a soft-deleted category.
 
         Args:
@@ -336,7 +364,7 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Deletion state does not hide a directly requested record.
         """
-        return _success(application.get_category(dataset_id, category_id))
+        return _success(CategoryRecord, application.get_category(dataset_id, category_id))
 
     @mcp.tool
     def list_images(
@@ -346,7 +374,7 @@ def create_server(settings: Settings) -> FastMCP:
         random_seed: int | None = None,
         offset: int = 0,
         max_results: int = 100,
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[ImageList]:
         """Discover dataset images with status filtering and stable ordering.
 
         Args:
@@ -366,10 +394,16 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Discovery is read-only; untracked images default to ``unannotated``.
         """
-        return _success(application.list_images(dataset_id, status, order_by, random_seed, offset, max_results))
+        return _success(
+            ImageList, application.list_images(dataset_id, status, order_by, random_seed, offset, max_results)
+        )
 
     @mcp.tool
-    def set_image_status(dataset_id: int, image_path: str, status: ImageStatus) -> dict[str, Any]:
+    def set_image_status(
+        dataset_id: int,
+        image_path: str,
+        status: ImageStatus,
+    ) -> SuccessEnvelope[ImageStatusRecord]:
         """Set annotation workflow status without changing the image.
 
         Args:
@@ -386,9 +420,9 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Only SQLite workflow state changes; source pixels and metadata do not.
         """
-        return _success(application.set_image_status(dataset_id, image_path, status))
+        return _success(ImageStatusRecord, application.set_image_status(dataset_id, image_path, status))
 
-    @mcp.tool
+    @mcp.tool(output_schema=SuccessEnvelope[PreviewMetadata].model_json_schema())
     def preview_image(
         dataset_id: int,
         image_path: str,
@@ -415,9 +449,9 @@ def create_server(settings: Settings) -> FastMCP:
             Dimensions are clamped to server limits and no file is written.
         """
         image, metadata = application.preview_image(dataset_id, image_path, max_width, max_height, allow_upscale)
-        return _preview_result(image, metadata)
+        return _preview_result(image, PreviewMetadata, metadata)
 
-    @mcp.tool
+    @mcp.tool(output_schema=SuccessEnvelope[AnnotationPreviewMetadata].model_json_schema())
     def preview_annotations(
         dataset_id: int,
         image_path: str,
@@ -457,7 +491,7 @@ def create_server(settings: Settings) -> FastMCP:
             max_width,
             max_height,
         )
-        return _preview_result(image, metadata)
+        return _preview_result(image, AnnotationPreviewMetadata, metadata)
 
     @mcp.tool
     def list_annotations(
@@ -469,7 +503,7 @@ def create_server(settings: Settings) -> FastMCP:
         include_deleted_categories: bool = False,
         offset: int = 0,
         max_results: int = 100,
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[AnnotationList]:
         """List annotations with stable filters and pagination.
 
         Args:
@@ -492,6 +526,7 @@ def create_server(settings: Settings) -> FastMCP:
             Results are ordered by stable annotation identifier.
         """
         return _success(
+            AnnotationList,
             application.list_annotations(
                 dataset_id,
                 image_path,
@@ -501,7 +536,7 @@ def create_server(settings: Settings) -> FastMCP:
                 include_deleted_categories,
                 offset,
                 max_results,
-            )
+            ),
         )
 
     @mcp.tool
@@ -509,7 +544,7 @@ def create_server(settings: Settings) -> FastMCP:
         dataset_id: int,
         image_path: str,
         annotations: list[BBoxCreate],
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[AnnotationBatch]:
         """Add normalized xyxy annotations in one transaction.
 
         Args:
@@ -526,7 +561,7 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             All annotations are validated before any record is inserted.
         """
-        return _success(application.add_bbox_annotations(dataset_id, image_path, annotations))
+        return _success(AnnotationBatch, application.add_bbox_annotations(dataset_id, image_path, annotations))
 
     @mcp.tool
     def edit_bbox_annotation(
@@ -534,7 +569,7 @@ def create_server(settings: Settings) -> FastMCP:
         annotation_id: int,
         category_id: int | None = None,
         bbox: list[float] | None = None,
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[AnnotationRecord]:
         """Edit a bbox annotation without changing its type.
 
         Args:
@@ -552,13 +587,16 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Omitted fields retain their existing values.
         """
-        return _success(application.edit_bbox_annotation(dataset_id, annotation_id, category_id, bbox))
+        return _success(
+            AnnotationRecord,
+            application.edit_bbox_annotation(dataset_id, annotation_id, category_id, bbox),
+        )
 
     @mcp.tool
     def delete_bbox_annotation(
         dataset_id: int,
         annotation_ids: list[int],
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[DeletedAnnotations]:
         """Hard-delete one or more bbox annotations atomically.
 
         Args:
@@ -575,14 +613,17 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Every identifier is validated before deletion begins.
         """
-        return _success(application.delete_annotations(dataset_id, annotation_ids, AnnotationType.BBOX))
+        return _success(
+            DeletedAnnotations,
+            application.delete_annotations(dataset_id, annotation_ids, AnnotationType.BBOX),
+        )
 
     @mcp.tool
     def add_rotated_bbox_annotations(
         dataset_id: int,
         image_path: str,
         annotations: list[RotatedBBoxCreate],
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[RotatedAnnotationBatch]:
         """Validate, correct, and add rotated annotations atomically.
 
         Args:
@@ -600,7 +641,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             All annotations are validated before canonical geometry is inserted.
         """
-        return _success(application.add_rotated_bbox_annotations(dataset_id, image_path, annotations))
+        return _success(
+            RotatedAnnotationBatch,
+            application.add_rotated_bbox_annotations(dataset_id, image_path, annotations),
+        )
 
     @mcp.tool
     def edit_rotated_bbox_annotation(
@@ -608,7 +652,7 @@ def create_server(settings: Settings) -> FastMCP:
         annotation_id: int,
         category_id: int | None = None,
         polygon: list[float] | None = None,
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[RotatedAnnotationRecord]:
         """Edit a rotated annotation without changing its type.
 
         Args:
@@ -627,13 +671,16 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Omitted fields retain their existing values.
         """
-        return _success(application.edit_rotated_bbox_annotation(dataset_id, annotation_id, category_id, polygon))
+        return _success(
+            RotatedAnnotationRecord,
+            application.edit_rotated_bbox_annotation(dataset_id, annotation_id, category_id, polygon),
+        )
 
     @mcp.tool
     def delete_rotated_bbox_annotation(
         dataset_id: int,
         annotation_ids: list[int],
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[DeletedAnnotations]:
         """Hard-delete one or more rotated annotations atomically.
 
         Args:
@@ -650,7 +697,10 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Every identifier is validated before deletion begins.
         """
-        return _success(application.delete_annotations(dataset_id, annotation_ids, AnnotationType.ROTATED_BBOX))
+        return _success(
+            DeletedAnnotations,
+            application.delete_annotations(dataset_id, annotation_ids, AnnotationType.ROTATED_BBOX),
+        )
 
     @mcp.tool
     def export_metadata_jsonl(
@@ -658,7 +708,7 @@ def create_server(settings: Settings) -> FastMCP:
         output_path: str,
         export_mode: ExportMode = ExportMode.AUTOTRAIN,
         overwrite: bool = False,
-    ) -> dict[str, Any]:
+    ) -> SuccessEnvelope[ExportRecord]:
         """Preflight and atomically export completed-image metadata.
 
         Args:
@@ -678,6 +728,9 @@ def create_server(settings: Settings) -> FastMCP:
             Only completed images are exported. Output replacement is atomic and
             source images remain immutable.
         """
-        return _success(application.export_metadata_jsonl(dataset_id, output_path, export_mode, overwrite))
+        return _success(
+            ExportRecord,
+            application.export_metadata_jsonl(dataset_id, output_path, export_mode, overwrite),
+        )
 
     return mcp

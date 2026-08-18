@@ -63,7 +63,7 @@ class Application:
                 (name.strip() if name else None, str(root), timestamp, timestamp),
             )
             row = self.repository.dataset(connection, inserted_id(cursor))
-            return row_dict(row)
+            return self.repository.dataset_dict(row)
 
     def delete_dataset(self, dataset_id: int) -> dict[str, Any]:
         """Soft-delete a dataset and preserve its related state.
@@ -87,7 +87,7 @@ class Application:
                 "UPDATE datasets SET deleted_at = COALESCE(deleted_at, ?), updated_at = ? WHERE id = ?",
                 (now(), now(), dataset_id),
             )
-            return row_dict(self.repository.dataset(connection, dataset_id))
+            return self.repository.dataset_dict(self.repository.dataset(connection, dataset_id))
 
     def restore_dataset(self, dataset_id: int) -> dict[str, Any]:
         """Restore a soft-deleted dataset record.
@@ -108,7 +108,7 @@ class Application:
                 "UPDATE datasets SET deleted_at = NULL, updated_at = ? WHERE id = ?",
                 (now(), dataset_id),
             )
-            return row_dict(self.repository.dataset(connection, dataset_id))
+            return self.repository.dataset_dict(self.repository.dataset(connection, dataset_id))
 
     def list_datasets(self, include_deleted: bool = False) -> dict[str, Any]:
         """List registered datasets in identifier order.
@@ -127,7 +127,7 @@ class Application:
             query += " WHERE deleted_at IS NULL"
         query += " ORDER BY id"
         with self.database.connect() as connection:
-            datasets = [row_dict(row) for row in connection.execute(query)]
+            datasets = [self.repository.dataset_dict(row) for row in connection.execute(query)]
         return {"datasets": datasets, "count": len(datasets)}
 
     def get_dataset(self, dataset_id: int) -> dict[str, Any]:
@@ -144,7 +144,7 @@ class Application:
             sqlite3.Error: If the query fails.
         """
         with self.database.connect() as connection:
-            return row_dict(self.repository.dataset(connection, dataset_id))
+            return self.repository.dataset_dict(self.repository.dataset(connection, dataset_id))
 
     def add_categories(self, dataset_id: int, categories: list[CategoryCreate]) -> dict[str, Any]:
         """Add a non-empty category batch atomically.
@@ -185,7 +185,11 @@ class Application:
                             field=f"categories[{index}].name",
                             details={"name": category.name},
                         ) from error
-                    created.append(row_dict(self.repository.category(connection, dataset_id, inserted_id(cursor))))
+                    created.append(
+                        self.repository.category_dict(
+                            self.repository.category(connection, dataset_id, inserted_id(cursor))
+                        )
+                    )
                 return {"categories": created, "count": len(created)}
         except DomainError:
             raise
@@ -235,7 +239,7 @@ class Application:
                     "active category names must be unique within a dataset",
                     field="name",
                 ) from error
-            return row_dict(self.repository.category(connection, dataset_id, category_id))
+            return self.repository.category_dict(self.repository.category(connection, dataset_id, category_id))
 
     def delete_category(self, dataset_id: int, category_id: int) -> dict[str, Any]:
         """Soft-delete a category while preserving its annotations.
@@ -259,7 +263,7 @@ class Application:
                 "UPDATE categories SET deleted_at = COALESCE(deleted_at, ?), updated_at = ? WHERE id = ?",
                 (timestamp, timestamp, category_id),
             )
-            return row_dict(self.repository.category(connection, dataset_id, category_id))
+            return self.repository.category_dict(self.repository.category(connection, dataset_id, category_id))
 
     def restore_category(self, dataset_id: int, category_id: int, new_name: str | None = None) -> dict[str, Any]:
         """Restore a category with an optional replacement name.
@@ -294,7 +298,7 @@ class Application:
                     "restored category name conflicts with an active category",
                     field="new_name" if new_name is not None else "name",
                 ) from error
-            return row_dict(self.repository.category(connection, dataset_id, category_id))
+            return self.repository.category_dict(self.repository.category(connection, dataset_id, category_id))
 
     def list_categories(self, dataset_id: int, include_deleted: bool = False) -> dict[str, Any]:
         """List a dataset's categories in identifier order.
@@ -316,7 +320,7 @@ class Application:
             if not include_deleted:
                 query += " AND deleted_at IS NULL"
             query += " ORDER BY id"
-            categories = [row_dict(row) for row in connection.execute(query, (dataset_id,))]
+            categories = [self.repository.category_dict(row) for row in connection.execute(query, (dataset_id,))]
         return {"categories": categories, "count": len(categories)}
 
     def get_category(self, dataset_id: int, category_id: int) -> dict[str, Any]:
@@ -335,7 +339,7 @@ class Application:
         """
         with self.database.connect() as connection:
             self.repository.dataset(connection, dataset_id)
-            return row_dict(self.repository.category(connection, dataset_id, category_id))
+            return self.repository.category_dict(self.repository.category(connection, dataset_id, category_id))
 
     def _dataset_root(self, connection: sqlite3.Connection, dataset_id: int, *, active: bool = False) -> Path:
         """Resolve a stored dataset root and optionally require active state."""
@@ -800,6 +804,7 @@ class Application:
             annotations = []
             for row in rows:
                 record = row_dict(row)
+                record["annotation_id"] = record.pop("id")
                 record["geometry"] = json.loads(record.pop("geometry_json"))
                 annotations.append(record)
         return {"annotations": annotations, "total": total, "offset": offset, "count": len(annotations)}
