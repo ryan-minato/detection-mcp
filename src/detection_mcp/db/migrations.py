@@ -43,6 +43,27 @@ MIGRATIONS: tuple[str, ...] = (
     CREATE INDEX annotations_dataset_image ON annotations(dataset_id, image_path);
     CREATE INDEX annotations_category ON annotations(category_id);
     """,
+    """
+    CREATE TABLE annotations_next (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dataset_id INTEGER NOT NULL REFERENCES datasets(id),
+        image_path TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('bbox', 'rotated_bbox')),
+        category_id INTEGER NOT NULL REFERENCES categories(id),
+        geometry_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    INSERT INTO annotations_next(
+        id, dataset_id, image_path, type, category_id, geometry_json, created_at, updated_at
+    )
+    SELECT id, dataset_id, image_path, type, category_id, geometry_json, created_at, updated_at
+    FROM annotations;
+    DROP TABLE annotations;
+    ALTER TABLE annotations_next RENAME TO annotations;
+    CREATE INDEX annotations_dataset_image ON annotations(dataset_id, image_path);
+    CREATE INDEX annotations_category ON annotations(category_id);
+    """,
 )
 
 
@@ -59,7 +80,7 @@ def migrate(connection: sqlite3.Connection) -> None:
         sqlite3.Error: If schema inspection or a migration statement fails.
 
     Notes:
-        Migrations are forward-only and recorded after their scripts complete.
+        Each forward-only migration and its version record commit atomically.
     """
     connection.execute(
         "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)"
@@ -68,9 +89,15 @@ def migrate(connection: sqlite3.Connection) -> None:
     for version, script in enumerate(MIGRATIONS, start=1):
         if version in applied:
             continue
-        connection.executescript(script)
-        connection.execute(
-            "INSERT INTO schema_migrations(version, applied_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
-            (version,),
-        )
-    connection.commit()
+        transaction = f"""
+        BEGIN IMMEDIATE;
+        {script}
+        INSERT INTO schema_migrations(version, applied_at)
+        VALUES ({version}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+        COMMIT;
+        """  # noqa: S608 - migration scripts and integer versions are trusted constants.
+        try:
+            connection.executescript(transaction)
+        except sqlite3.Error:
+            connection.rollback()
+            raise
