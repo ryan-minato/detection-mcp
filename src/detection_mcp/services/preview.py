@@ -80,6 +80,12 @@ def render_preview(
             else:
                 polygon = [(geometry[index] * width, geometry[index + 1] * height) for index in range(0, 8, 2)]
                 draw.line([*polygon, polygon[0]], fill=color, width=line_width)
+                marker_radius = max(2, line_width * 2)
+                for x, y in polygon:
+                    draw.ellipse(
+                        (x - marker_radius, y - marker_radius, x + marker_radius, y + marker_radius),
+                        fill=color,
+                    )
                 label_at = polygon[0]
             label = f"[{annotation['annotation_id']}] {annotation['category_name']}"
             label_box = draw.textbbox(label_at, label)

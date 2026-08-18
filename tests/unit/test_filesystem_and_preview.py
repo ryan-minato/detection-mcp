@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -90,3 +91,35 @@ def test_discovery_sorting_decode_failure_and_preview_overlay(tmp_path: Path) ->
     assert data.startswith(b"\x89PNG")
     assert metadata["preview_width"] == 80
     assert metadata["preview_height"] == 40
+
+
+def test_rotated_preview_marks_vertices(tmp_path: Path) -> None:
+    image_path = tmp_path / "image.png"
+    Image.new("RGB", (100, 100), "white").save(image_path)
+    common = {"annotation_id": 1, "category_id": 2, "category_name": "shape"}
+
+    bbox_data, _ = render_preview(
+        image_path,
+        maximum_width=100,
+        maximum_height=100,
+        allow_upscale=False,
+        annotations=[{**common, "type": "bbox", "geometry": [0.2, 0.2, 0.8, 0.8]}],
+    )
+    rotated_data, _ = render_preview(
+        image_path,
+        maximum_width=100,
+        maximum_height=100,
+        allow_upscale=False,
+        annotations=[
+            {
+                **common,
+                "type": "rotated_bbox",
+                "geometry": [0.2, 0.2, 0.8, 0.2, 0.8, 0.8, 0.2, 0.8],
+            }
+        ],
+    )
+
+    bbox = Image.open(BytesIO(bbox_data))
+    rotated = Image.open(BytesIO(rotated_data))
+    assert bbox.getpixel((78, 78)) == (255, 255, 255)
+    assert rotated.getpixel((78, 78)) != (255, 255, 255)

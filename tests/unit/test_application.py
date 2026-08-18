@@ -73,6 +73,24 @@ def test_bbox_batch_rolls_back_on_invalid_geometry(application: Application, ima
     assert application.list_annotations(dataset_id)["count"] == 0
 
 
+def test_annotation_batch_reports_invalid_category_position(application: Application, image_root: Path) -> None:
+    dataset_id, category_id = _dataset_and_category(application, image_root)
+
+    with pytest.raises(DomainError) as captured:
+        application.add_bbox_annotations(
+            dataset_id,
+            "0.png",
+            [
+                BBoxCreate(category_id=category_id, bbox=[0.1, 0.1, 0.4, 0.4]),
+                BBoxCreate(category_id=category_id + 1, bbox=[0.2, 0.2, 0.5, 0.5]),
+            ],
+        )
+
+    assert captured.value.code is ErrorCode.CATEGORY_NOT_FOUND
+    assert captured.value.field == "annotations[1].category_id"
+    assert application.list_annotations(dataset_id)["count"] == 0
+
+
 def test_deleted_category_annotations_are_hidden(application: Application, image_root: Path) -> None:
     dataset_id, category_id = _dataset_and_category(application, image_root)
     application.add_bbox_annotations(
@@ -237,6 +255,46 @@ def test_annotation_full_lifecycle_and_filters(application: Application, image_r
         == 1
     )
     assert application.list_annotations(dataset_id)["count"] == 0
+
+
+def test_delete_annotations_rejects_duplicate_ids(application: Application, image_root: Path) -> None:
+    dataset_id, category_id = _dataset_and_category(application, image_root)
+    annotation = application.add_bbox_annotations(
+        dataset_id,
+        "0.png",
+        [BBoxCreate(category_id=category_id, bbox=[0.1, 0.1, 0.4, 0.4])],
+    )["annotations"][0]
+
+    with pytest.raises(DomainError) as captured:
+        application.delete_annotations(
+            dataset_id,
+            [annotation["annotation_id"], annotation["annotation_id"]],
+            AnnotationType.BBOX,
+        )
+
+    assert captured.value.code is ErrorCode.INVALID_ARGUMENT
+    assert captured.value.field == "annotation_ids"
+    assert application.list_annotations(dataset_id)["count"] == 1
+
+
+def test_annotation_preview_does_not_truncate_large_result_set(
+    application: Application,
+    image_root: Path,
+) -> None:
+    dataset_id, category_id = _dataset_and_category(application, image_root)
+    timestamp = "2026-01-01T00:00:00+00:00"
+    rows = [(dataset_id, "0.png", category_id, "[0.1, 0.1, 0.2, 0.2]", timestamp, timestamp) for _ in range(10_001)]
+    with application.database.transaction() as connection:
+        connection.executemany(
+            "INSERT INTO annotations("
+            "dataset_id, image_path, type, category_id, geometry_json, created_at, updated_at"
+            ") VALUES (?, ?, 'bbox', ?, ?, ?, ?)",
+            rows,
+        )
+
+    _, metadata = application.preview_annotations(dataset_id, "0.png")
+
+    assert metadata["annotation_count"] == 10_001
 
 
 def test_annotation_and_listing_argument_validation(application: Application, image_root: Path) -> None:

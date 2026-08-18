@@ -445,11 +445,23 @@ class Application:
         dataset_id: int,
         image_path: str,
         category_id: int,
+        *,
+        category_field: str | None = None,
     ) -> tuple[str, Path]:
         """Validate active dataset, image, and category ownership together."""
         root = self._dataset_root(connection, dataset_id, active=True)
         relative, absolute = resolve_image(root, image_path)
-        self.repository.active_category(connection, dataset_id, category_id)
+        try:
+            self.repository.active_category(connection, dataset_id, category_id)
+        except DomainError as error:
+            if category_field is None:
+                raise
+            raise DomainError(
+                error.code,
+                error.message,
+                field=category_field,
+                details=error.details,
+            ) from error
         return relative, absolute
 
     def add_bbox_annotations(
@@ -483,7 +495,11 @@ class Application:
             relative: str | None = None
             for index, annotation in enumerate(annotations):
                 relative, _ = self._validate_annotation_target(
-                    connection, dataset_id, image_path, annotation.category_id
+                    connection,
+                    dataset_id,
+                    image_path,
+                    annotation.category_id,
+                    category_field=f"annotations[{index}].category_id",
                 )
                 prepared.append(
                     (annotation.category_id, validate_bbox(annotation.bbox, field=f"annotations[{index}].bbox"))
@@ -581,7 +597,11 @@ class Application:
             relative: str | None = None
             for index, annotation in enumerate(annotations):
                 relative, _ = self._validate_annotation_target(
-                    connection, dataset_id, image_path, annotation.category_id
+                    connection,
+                    dataset_id,
+                    image_path,
+                    annotation.category_id,
+                    category_field=f"annotations[{index}].category_id",
                 )
                 geometry = validate_rotated_bbox(
                     annotation.polygon,
@@ -717,6 +737,12 @@ class Application:
         """
         if not annotation_ids:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "annotation_ids must not be empty", field="annotation_ids")
+        if len(annotation_ids) != len(set(annotation_ids)):
+            raise DomainError(
+                ErrorCode.INVALID_ARGUMENT,
+                "annotation_ids must not contain duplicates",
+                field="annotation_ids",
+            )
         with self.database.transaction() as connection:
             self.repository.active_dataset(connection, dataset_id)
             # Validate the complete batch before constructing the parameter list.
@@ -738,7 +764,7 @@ class Application:
         annotation_ids: list[int] | None = None,
         include_deleted_categories: bool = False,
         offset: int = 0,
-        max_results: int = 100,
+        max_results: int | None = 100,
     ) -> dict[str, Any]:
         """Filter and page annotations with category metadata.
 
@@ -751,7 +777,8 @@ class Application:
             include_deleted_categories: Whether annotations whose category is
                 deleted are included.
             offset: Zero-based result offset.
-            max_results: Positive page size.
+            max_results: Positive page size, or ``None`` for an internal
+                unbounded query.
 
         Returns:
             Decoded annotation records, total count, and page metadata.
@@ -766,7 +793,7 @@ class Application:
         """
         if annotation_type not in {None, "all", AnnotationType.BBOX.value, AnnotationType.ROTATED_BBOX.value}:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "invalid annotation_type", field="annotation_type")
-        if offset < 0 or max_results <= 0:
+        if offset < 0 or (max_results is not None and max_results <= 0):
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "offset must be non-negative and max_results positive")
         # Build a parameterized filter shared by the count and page queries.
         clauses = ["a.dataset_id = ?"]
@@ -795,12 +822,13 @@ class Application:
             select_query = (
                 "SELECT a.*, c.name AS category_name, c.deleted_at AS category_deleted_at "  # noqa: S608
                 f"FROM annotations a JOIN categories c ON c.id = a.category_id WHERE {where} "
-                "ORDER BY a.id LIMIT ? OFFSET ?"
+                "ORDER BY a.id"
             )
-            rows = connection.execute(
-                select_query,
-                (*parameters, max_results, offset),
-            )
+            query_parameters = parameters
+            if max_results is not None:
+                select_query += " LIMIT ? OFFSET ?"
+                query_parameters = [*parameters, max_results, offset]
+            rows = connection.execute(select_query, query_parameters)
             annotations = []
             for row in rows:
                 record = row_dict(row)
@@ -897,7 +925,7 @@ class Application:
             annotation_type=annotation_type,
             annotation_ids=annotation_ids,
             include_deleted_categories=include_deleted_categories,
-            max_results=10_000,
+            max_results=None,
         )
         requested_width = self.settings.preview_max_width if max_width is None else max_width
         requested_height = self.settings.preview_max_height if max_height is None else max_height
