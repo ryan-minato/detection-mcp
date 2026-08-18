@@ -1,0 +1,20 @@
+services:
+  detection-mcp:
+    build:
+      context: .
+    image: detection-mcp:local
+    stdin_open: true
+    volumes:
+      - type: bind
+        source: ${DETECTION_MCP_DATASET_PATH:?Set DETECTION_MCP_DATASET_PATH}
+        target: /datasets
+        read_only: true
+      - type: bind
+        source: ${DETECTION_MCP_EXPORT_PATH:?Set DETECTION_MCP_EXPORT_PATH}
+        target: /exports
+      - type: volume
+        source: detection-mcp-state
+        target: /state
+
+volumes:
+  detection-mcp-state:
