@@ -1,0 +1,63 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: requirements-txt-fixer
+      - id: check-yaml
+      - id: check-json
+        exclude: ^\.devcontainer/devcontainer\.json$
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: mixed-line-ending
+        args: [ "--fix=auto" ]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      - id: ruff
+        types_or: [ python, pyi ]
+        args: [ --fix ]
+      - id: ruff-format
+        types_or: [ python, pyi ]
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.5
+    hooks:
+      - id: uv-lock
+        name: update uv.lock file
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+        name: secret scanning with gitleaks
+
+  - repo: local
+    hooks:
+      - id: sensitive-data
+        name: scan staged secrets and personal information
+        entry: uv run python scripts/check_sensitive.py --staged
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: quality
+        name: complete local quality gate
+        entry: uv run python scripts/quality.py
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: commit-message
+        name: validate Conventional Commit message
+        entry: uv run python scripts/validate_commit_message.py
+        language: system
+        stages: [commit-msg]
+      - id: pre-push-quality
+        name: complete pre-push quality gate
+        entry: uv run python scripts/quality.py
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

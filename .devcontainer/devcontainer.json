@@ -1,0 +1,17 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+	"name": "Ubuntu",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/base:resolute",
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2": {},
+		"ghcr.io/devcontainers/features/git:1": {},
+		"ghcr.io/devcontainers/features/git-lfs:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/stacit-ai/devcontainer-features/uv:1": {
+			"toolsToInstall": "pre-commit,rust-just"
+		}
+	},
+	"postCreateCommand": "uv sync --locked --all-groups && uv run pre-commit install --install-hooks --hook-type pre-commit --hook-type commit-msg --hook-type pre-push"
+}
