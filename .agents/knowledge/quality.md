@@ -85,8 +85,8 @@ Failures block the commit; fix the cause and rerun the complete gate.
 CI separates inexpensive quality controls from tests:
 
 - `quality.yml` runs `just quality-control` for every pushed commit on every
-  branch. Pull requests from forks receive the same check through the pull request
-  event.
+  branch and for every pull request, including pull requests from the same
+  repository and from forks.
 - `tests.yml` runs only for pull requests and pushes to the default branch. Pull
   request runs use the head SHA and cancel older in-progress runs for the same PR,
   so expensive tests run only for its latest commit.

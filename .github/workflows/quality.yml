@@ -10,7 +10,6 @@ permissions:
 jobs:
   quality-control:
     name: Quality control
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

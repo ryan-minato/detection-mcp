@@ -22,6 +22,13 @@ def _assert_actions_are_pinned(workflow: dict[str, Any]) -> None:
                 assert PINNED_ACTION.fullmatch(action)
 
 
+def test_quality_control_runs_for_all_pushes_and_pull_requests() -> None:
+    workflow = _load_workflow("quality.yml")
+
+    assert workflow["on"] == {"pull_request": "", "push": ""}
+    assert "if" not in workflow["jobs"]["quality-control"]
+
+
 def test_container_publish_workflow_has_safe_release_contract() -> None:
     workflow = _load_workflow("publish-container.yml")
 
