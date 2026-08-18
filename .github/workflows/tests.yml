@@ -66,6 +66,10 @@ jobs:
           uv venv clean-venv
           uv pip install --python clean-venv/bin/python dist/*.whl
           clean-venv/bin/detection-mcp --version
+      - name: Verify installed STDIO server
+        env:
+          DETECTION_MCP_STDIO_COMMAND: ${{ github.workspace }}/clean-venv/bin/detection-mcp
+        run: uv run pytest tests/integration/test_stdio.py
 
   container:
     name: Container integration test
