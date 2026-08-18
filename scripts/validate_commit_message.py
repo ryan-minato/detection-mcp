@@ -8,6 +8,7 @@ HEADER = re.compile(r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|
 
 
 def main() -> int:
+    """Validate the commit message file supplied by Git and return a status."""
     if len(sys.argv) != 2:
         print("usage: validate_commit_message.py COMMIT_MSG_FILE", file=sys.stderr)
         return 2

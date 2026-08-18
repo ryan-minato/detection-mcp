@@ -19,6 +19,19 @@ from detection_mcp.services.preview import render_preview
 
 
 class Application:
+    """Coordinate validation, persistence, image access, and exports.
+
+    Args:
+        settings: Validated runtime configuration.
+
+    Raises:
+        OSError: If the database directory cannot be created.
+        sqlite3.Error: If database initialization fails.
+
+    Notes:
+        This service owns annotation state but treats dataset images as immutable.
+    """
+
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.database = Database(settings.db_path)
@@ -26,6 +39,22 @@ class Application:
         self.database.initialize()
 
     def create_dataset(self, root_path: str, name: str | None = None) -> dict[str, Any]:
+        """Register an authorized dataset root.
+
+        Args:
+            root_path: Existing directory containing source images.
+            name: Optional display name for the dataset.
+
+        Returns:
+            The newly persisted dataset record.
+
+        Raises:
+            DomainError: If the root is unavailable or not allowed.
+            sqlite3.Error: If the dataset cannot be persisted.
+
+        Notes:
+            Registration stores the resolved path and never changes source files.
+        """
         root = resolve_dataset_root(root_path, self.settings.allowed_dataset_roots)
         timestamp = now()
         with self.database.transaction() as connection:
@@ -37,6 +66,21 @@ class Application:
             return row_dict(row)
 
     def delete_dataset(self, dataset_id: int) -> dict[str, Any]:
+        """Soft-delete a dataset and preserve its related state.
+
+        Args:
+            dataset_id: Dataset identifier to delete.
+
+        Returns:
+            The dataset record with its deletion timestamp.
+
+        Raises:
+            DomainError: If the dataset does not exist.
+            sqlite3.Error: If the update fails.
+
+        Notes:
+            Repeated deletion is idempotent and source images remain untouched.
+        """
         with self.database.transaction() as connection:
             self.repository.dataset(connection, dataset_id)
             connection.execute(
@@ -46,6 +90,18 @@ class Application:
             return row_dict(self.repository.dataset(connection, dataset_id))
 
     def restore_dataset(self, dataset_id: int) -> dict[str, Any]:
+        """Restore a soft-deleted dataset record.
+
+        Args:
+            dataset_id: Dataset identifier to restore.
+
+        Returns:
+            The active dataset record.
+
+        Raises:
+            DomainError: If the dataset does not exist.
+            sqlite3.Error: If the update fails.
+        """
         with self.database.transaction() as connection:
             self.repository.dataset(connection, dataset_id)
             connection.execute(
@@ -55,6 +111,17 @@ class Application:
             return row_dict(self.repository.dataset(connection, dataset_id))
 
     def list_datasets(self, include_deleted: bool = False) -> dict[str, Any]:
+        """List registered datasets in identifier order.
+
+        Args:
+            include_deleted: Whether soft-deleted records are included.
+
+        Returns:
+            Dataset records and their count.
+
+        Raises:
+            sqlite3.Error: If the query fails.
+        """
         query = "SELECT * FROM datasets"
         if not include_deleted:
             query += " WHERE deleted_at IS NULL"
@@ -64,14 +131,43 @@ class Application:
         return {"datasets": datasets, "count": len(datasets)}
 
     def get_dataset(self, dataset_id: int) -> dict[str, Any]:
+        """Get one dataset regardless of deletion state.
+
+        Args:
+            dataset_id: Dataset identifier to fetch.
+
+        Returns:
+            The matching dataset record.
+
+        Raises:
+            DomainError: If the dataset does not exist.
+            sqlite3.Error: If the query fails.
+        """
         with self.database.connect() as connection:
             return row_dict(self.repository.dataset(connection, dataset_id))
 
     def add_categories(self, dataset_id: int, categories: list[CategoryCreate]) -> dict[str, Any]:
+        """Add a non-empty category batch atomically.
+
+        Args:
+            dataset_id: Active dataset that will own the categories.
+            categories: Validated category creation requests.
+
+        Returns:
+            Created category records and their count.
+
+        Raises:
+            DomainError: If input is empty, the dataset is unavailable, names
+                conflict, or the transaction fails.
+
+        Notes:
+            Any invalid category rolls back the complete batch.
+        """
         if not categories:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "categories must not be empty", field="categories")
         timestamp = now()
         try:
+            # Validate ownership and persist the complete category batch together.
             with self.database.transaction() as connection:
                 self.repository.active_dataset(connection, dataset_id)
                 created: list[dict[str, Any]] = []
@@ -103,6 +199,22 @@ class Application:
         name: str | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:
+        """Update a category name, description, or both.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            category_id: Category identifier to update.
+            name: Optional replacement name.
+            description: Optional replacement authoritative description.
+
+        Returns:
+            The updated category record.
+
+        Raises:
+            DomainError: If no field is supplied, a name is invalid or conflicts,
+                or the dataset or category is unavailable.
+            sqlite3.Error: If the update fails.
+        """
         if name is None and description is None:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "name or description is required")
         if name is not None and not name.strip():
@@ -126,6 +238,19 @@ class Application:
             return row_dict(self.repository.category(connection, dataset_id, category_id))
 
     def delete_category(self, dataset_id: int, category_id: int) -> dict[str, Any]:
+        """Soft-delete a category while preserving its annotations.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            category_id: Category identifier to delete.
+
+        Returns:
+            The category record with its deletion timestamp.
+
+        Raises:
+            DomainError: If the dataset or category is unavailable.
+            sqlite3.Error: If the update fails.
+        """
         with self.database.transaction() as connection:
             self.repository.active_dataset(connection, dataset_id)
             self.repository.category(connection, dataset_id, category_id)
@@ -137,6 +262,21 @@ class Application:
             return row_dict(self.repository.category(connection, dataset_id, category_id))
 
     def restore_category(self, dataset_id: int, category_id: int, new_name: str | None = None) -> dict[str, Any]:
+        """Restore a category with an optional replacement name.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            category_id: Category identifier to restore.
+            new_name: Optional non-conflicting name used during restoration.
+
+        Returns:
+            The restored category record.
+
+        Raises:
+            DomainError: If the dataset or category is unavailable or the final
+                name is empty or conflicts with an active category.
+            sqlite3.Error: If the update fails.
+        """
         with self.database.transaction() as connection:
             self.repository.active_dataset(connection, dataset_id)
             category = self.repository.category(connection, dataset_id, category_id)
@@ -157,6 +297,19 @@ class Application:
             return row_dict(self.repository.category(connection, dataset_id, category_id))
 
     def list_categories(self, dataset_id: int, include_deleted: bool = False) -> dict[str, Any]:
+        """List a dataset's categories in identifier order.
+
+        Args:
+            dataset_id: Owning dataset identifier.
+            include_deleted: Whether soft-deleted categories are included.
+
+        Returns:
+            Category records and their count.
+
+        Raises:
+            DomainError: If the dataset does not exist.
+            sqlite3.Error: If the query fails.
+        """
         with self.database.connect() as connection:
             self.repository.dataset(connection, dataset_id)
             query = "SELECT * FROM categories WHERE dataset_id = ?"
@@ -167,11 +320,25 @@ class Application:
         return {"categories": categories, "count": len(categories)}
 
     def get_category(self, dataset_id: int, category_id: int) -> dict[str, Any]:
+        """Get one category regardless of deletion state.
+
+        Args:
+            dataset_id: Owning dataset identifier.
+            category_id: Category identifier to fetch.
+
+        Returns:
+            The matching category record.
+
+        Raises:
+            DomainError: If the dataset or category does not exist.
+            sqlite3.Error: If the query fails.
+        """
         with self.database.connect() as connection:
             self.repository.dataset(connection, dataset_id)
             return row_dict(self.repository.category(connection, dataset_id, category_id))
 
     def _dataset_root(self, connection: sqlite3.Connection, dataset_id: int, *, active: bool = False) -> Path:
+        """Resolve a stored dataset root and optionally require active state."""
         dataset = (
             self.repository.active_dataset(connection, dataset_id)
             if active
@@ -188,6 +355,26 @@ class Application:
         offset: int = 0,
         max_results: int = 100,
     ) -> dict[str, Any]:
+        """Discover and page images with stable status-aware ordering.
+
+        Args:
+            dataset_id: Dataset identifier to scan.
+            status: Workflow status filter or ``all``.
+            order_by: ``name`` for lexical order or ``random`` for stable shuffle.
+            random_seed: Optional shuffle seed overriding configuration.
+            offset: Zero-based result offset.
+            max_results: Positive page size.
+
+        Returns:
+            Image records, total count, page metadata, and effective seed.
+
+        Raises:
+            DomainError: If filters or pagination are invalid, the dataset root is
+                unavailable, or the dataset does not exist.
+
+        Notes:
+            Random order is deterministic for dataset, seed, and image path.
+        """
         if status not in {"all", *(item.value for item in ImageStatus)}:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "invalid image status", field="status")
         if order_by not in {"name", "random"}:
@@ -202,6 +389,7 @@ class Application:
                     "SELECT image_path, status FROM image_states WHERE dataset_id = ?", (dataset_id,)
                 )
             }
+        # Merge discovered immutable files with workflow state from SQLite.
         images = [
             {"image_path": path, "status": states.get(path, ImageStatus.UNANNOTATED.value)}
             for path in discover_images(root)
@@ -218,6 +406,23 @@ class Application:
         return {"images": selected, "total": total, "offset": offset, "count": len(selected), "random_seed": seed}
 
     def set_image_status(self, dataset_id: int, image_path: str, status: ImageStatus) -> dict[str, Any]:
+        """Set workflow status for an existing source image.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            image_path: Dataset-relative source image path.
+            status: New annotation workflow state.
+
+        Returns:
+            The normalized image path, status, and update timestamp.
+
+        Raises:
+            DomainError: If the dataset or image is unavailable or disallowed.
+            sqlite3.Error: If the state cannot be persisted.
+
+        Notes:
+            Only SQLite state changes; the source image remains immutable.
+        """
         with self.database.transaction() as connection:
             root = self._dataset_root(connection, dataset_id, active=True)
             relative, _ = resolve_image(root, image_path)
@@ -237,6 +442,7 @@ class Application:
         image_path: str,
         category_id: int,
     ) -> tuple[str, Path]:
+        """Validate active dataset, image, and category ownership together."""
         root = self._dataset_root(connection, dataset_id, active=True)
         relative, absolute = resolve_image(root, image_path)
         self.repository.active_category(connection, dataset_id, category_id)
@@ -248,9 +454,27 @@ class Application:
         image_path: str,
         annotations: list[BBoxCreate],
     ) -> dict[str, Any]:
+        """Validate and add axis-aligned annotations atomically.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            image_path: Dataset-relative target image path.
+            annotations: Non-empty validated annotation requests.
+
+        Returns:
+            Created annotation records and their count.
+
+        Raises:
+            DomainError: If the batch, target, category, or geometry is invalid.
+            sqlite3.Error: If persistence fails.
+
+        Notes:
+            The complete batch is validated before any annotation is inserted.
+        """
         if not annotations:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "annotations must not be empty", field="annotations")
         with self.database.transaction() as connection:
+            # Validate every target and geometry before persisting the batch.
             prepared: list[tuple[int, list[float]]] = []
             relative: str | None = None
             for index, annotation in enumerate(annotations):
@@ -260,6 +484,7 @@ class Application:
                 prepared.append(
                     (annotation.category_id, validate_bbox(annotation.bbox, field=f"annotations[{index}].bbox"))
                 )
+            # Insert the prepared batch within the same transaction.
             timestamp = now()
             created = []
             for category_id, geometry in prepared:
@@ -286,6 +511,25 @@ class Application:
         category_id: int | None = None,
         bbox: list[float] | None = None,
     ) -> dict[str, Any]:
+        """Update category, geometry, or both for an axis-aligned annotation.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            annotation_id: Axis-aligned annotation identifier.
+            category_id: Optional replacement active category.
+            bbox: Optional replacement normalized xyxy geometry.
+
+        Returns:
+            The updated annotation record.
+
+        Raises:
+            DomainError: If no change is supplied or any referenced record or
+                geometry is invalid.
+            sqlite3.Error: If the update fails.
+
+        Notes:
+            The annotation type cannot be changed by this operation.
+        """
         if category_id is None and bbox is None:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "category_id or bbox is required")
         with self.database.transaction() as connection:
@@ -308,9 +552,27 @@ class Application:
         image_path: str,
         annotations: list[RotatedBBoxCreate],
     ) -> dict[str, Any]:
+        """Validate, correct, and add rotated annotations atomically.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            image_path: Dataset-relative target image path.
+            annotations: Non-empty validated rotated annotation requests.
+
+        Returns:
+            Created records with submitted, stored, and correction metadata.
+
+        Raises:
+            DomainError: If the batch, target, category, or polygon is invalid.
+            sqlite3.Error: If persistence fails.
+
+        Notes:
+            The complete batch is validated before any annotation is inserted.
+        """
         if not annotations:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "annotations must not be empty", field="annotations")
         with self.database.transaction() as connection:
+            # Validate and correct every polygon before persisting the batch.
             prepared: list[tuple[int, Any]] = []
             relative: str | None = None
             for index, annotation in enumerate(annotations):
@@ -325,6 +587,7 @@ class Application:
                     field=f"annotations[{index}].polygon",
                 )
                 prepared.append((annotation.category_id, geometry))
+            # Persist canonical geometry while returning correction diagnostics.
             timestamp = now()
             created = []
             for category_id, geometry in prepared:
@@ -359,6 +622,25 @@ class Application:
         category_id: int | None = None,
         polygon: list[float] | None = None,
     ) -> dict[str, Any]:
+        """Update category, geometry, or both for a rotated annotation.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            annotation_id: Rotated annotation identifier.
+            category_id: Optional replacement active category.
+            polygon: Optional replacement normalized polygon.
+
+        Returns:
+            The updated record with submitted, stored, and correction metadata.
+
+        Raises:
+            DomainError: If no change is supplied or any referenced record or
+                geometry is invalid.
+            sqlite3.Error: If the update fails.
+
+        Notes:
+            The annotation type cannot be changed by this operation.
+        """
         if category_id is None and polygon is None:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "category_id or polygon is required")
         with self.database.transaction() as connection:
@@ -368,6 +650,7 @@ class Application:
             )
             final_category = existing["category_id"] if category_id is None else category_id
             self.repository.active_category(connection, dataset_id, final_category)
+            # Preserve stored geometry unless replacement geometry was supplied.
             if polygon is None:
                 stored = json.loads(existing["geometry_json"])
                 submitted = stored
@@ -410,10 +693,29 @@ class Application:
         annotation_ids: list[int],
         annotation_type: AnnotationType,
     ) -> dict[str, Any]:
+        """Hard-delete a same-type annotation batch atomically.
+
+        Args:
+            dataset_id: Active owning dataset identifier.
+            annotation_ids: Non-empty identifiers to delete.
+            annotation_type: Required type of every target annotation.
+
+        Returns:
+            Deleted identifiers and their count.
+
+        Raises:
+            DomainError: If input is empty or any dataset, annotation, or type
+                constraint does not match.
+            sqlite3.Error: If deletion fails.
+
+        Notes:
+            Every identifier is validated before the single DELETE statement.
+        """
         if not annotation_ids:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "annotation_ids must not be empty", field="annotation_ids")
         with self.database.transaction() as connection:
             self.repository.active_dataset(connection, dataset_id)
+            # Validate the complete batch before constructing the parameter list.
             for annotation_id in annotation_ids:
                 self.repository.annotation(connection, dataset_id, annotation_id, annotation_type.value)
             placeholders = ",".join("?" for _ in annotation_ids)
@@ -434,10 +736,35 @@ class Application:
         offset: int = 0,
         max_results: int = 100,
     ) -> dict[str, Any]:
+        """Filter and page annotations with category metadata.
+
+        Args:
+            dataset_id: Owning dataset identifier.
+            image_path: Optional dataset-relative image filter.
+            annotation_type: Optional geometry type filter or ``all``.
+            category_ids: Optional category identifier filter.
+            annotation_ids: Optional annotation identifier filter.
+            include_deleted_categories: Whether annotations whose category is
+                deleted are included.
+            offset: Zero-based result offset.
+            max_results: Positive page size.
+
+        Returns:
+            Decoded annotation records, total count, and page metadata.
+
+        Raises:
+            DomainError: If filters, pagination, dataset, or image are invalid.
+            sqlite3.Error: If the query fails.
+
+        Notes:
+            Dynamic SQL contains only generated placeholders and fixed column
+            names; caller values are always bound parameters.
+        """
         if annotation_type not in {None, "all", AnnotationType.BBOX.value, AnnotationType.ROTATED_BBOX.value}:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "invalid annotation_type", field="annotation_type")
         if offset < 0 or max_results <= 0:
             raise DomainError(ErrorCode.INVALID_ARGUMENT, "offset must be non-negative and max_results positive")
+        # Build a parameterized filter shared by the count and page queries.
         clauses = ["a.dataset_id = ?"]
         parameters: list[Any] = [dataset_id]
         with self.database.connect() as connection:
@@ -456,6 +783,7 @@ class Application:
             if not include_deleted_categories:
                 clauses.append("c.deleted_at IS NULL")
             where = " AND ".join(clauses)
+            # Count before pagination, then decode geometry for the selected page.
             total = connection.execute(
                 f"SELECT COUNT(*) FROM annotations a JOIN categories c ON c.id = a.category_id WHERE {where}",  # noqa: S608
                 parameters,
@@ -484,6 +812,24 @@ class Application:
         max_height: int | None = None,
         allow_upscale: bool = False,
     ) -> tuple[bytes, dict[str, Any]]:
+        """Create an orientation-corrected preview of one image.
+
+        Args:
+            dataset_id: Owning dataset identifier.
+            image_path: Dataset-relative source image path.
+            max_width: Optional requested width limit.
+            max_height: Optional requested height limit.
+            allow_upscale: Whether a small image may be enlarged.
+
+        Returns:
+            In-memory PNG bytes and structured preview metadata.
+
+        Raises:
+            DomainError: If dimensions, dataset, image path, or decoding are invalid.
+
+        Notes:
+            Requested dimensions are clamped to server limits. No file is written.
+        """
         requested_width = self.settings.preview_max_width if max_width is None else max_width
         requested_height = self.settings.preview_max_height if max_height is None else max_height
         if requested_width <= 0 or requested_height <= 0:
@@ -518,6 +864,28 @@ class Application:
         max_width: int | None = None,
         max_height: int | None = None,
     ) -> tuple[bytes, dict[str, Any]]:
+        """Create an image preview with selected annotations overlaid.
+
+        Args:
+            dataset_id: Owning dataset identifier.
+            image_path: Dataset-relative source image path.
+            annotation_type: Geometry type filter or ``all``.
+            annotation_ids: Optional annotation identifiers to render.
+            include_deleted_categories: Whether deleted-category annotations render.
+            max_width: Optional requested width limit.
+            max_height: Optional requested height limit.
+
+        Returns:
+            In-memory PNG bytes and preview and annotation metadata.
+
+        Raises:
+            DomainError: If filters, dimensions, records, path, or decoding are
+                invalid.
+
+        Notes:
+            Annotation previews never upscale and never modify the source image.
+        """
+        # Resolve the exact annotation set before opening the source image.
         listed = self.list_annotations(
             dataset_id,
             image_path=image_path,
@@ -559,7 +927,28 @@ class Application:
         export_mode: ExportMode = ExportMode.AUTOTRAIN,
         overwrite: bool = False,
     ) -> dict[str, Any]:
+        """Export completed-image annotations to authorized metadata JSONL.
+
+        Args:
+            dataset_id: Active dataset identifier to export.
+            output_path: Destination file path.
+            export_mode: AutoTrain-compatible or extended layout.
+            overwrite: Whether an existing destination may be replaced.
+
+        Returns:
+            Export counts, mapping, exclusions, and destination metadata.
+
+        Raises:
+            DomainError: If the dataset, destination, image, or export preflight is
+                invalid or another writer holds the destination lock.
+            OSError: If output cannot be written atomically.
+            sqlite3.Error: If export state cannot be read.
+
+        Notes:
+            Only images marked completed are exported; source images stay immutable.
+        """
         output = resolve_output(output_path, self.settings.allowed_export_roots)
+        # Snapshot the completed images, active categories, and annotations.
         with self.database.connect() as connection:
             root = self._dataset_root(connection, dataset_id, active=True)
             completed = [

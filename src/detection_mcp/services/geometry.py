@@ -11,6 +11,16 @@ EPSILON = 1e-9
 
 @dataclass(frozen=True, slots=True)
 class RotatedGeometry:
+    """Describe submitted and persisted rotated-box geometry.
+
+    Attributes:
+        submitted_geometry: Coordinates exactly as supplied by the caller.
+        stored_geometry: Canonical coordinates persisted by the service.
+        corrected: Whether rectangle fitting changed the geometry.
+        deviation: Maximum normalized vertex displacement from the fitted box.
+        warning: Optional warning when correction exceeds the warning threshold.
+    """
+
     submitted_geometry: list[float]
     stored_geometry: list[float]
     corrected: bool
@@ -19,6 +29,18 @@ class RotatedGeometry:
 
 
 def validate_bbox(values: list[float], *, field: str = "bbox") -> list[float]:
+    """Validate and normalize an axis-aligned bounding box.
+
+    Args:
+        values: Coordinates in normalized ``[x1, y1, x2, y2]`` order.
+        field: Input field name used in structured errors.
+
+    Returns:
+        A new list containing finite float coordinates.
+
+    Raises:
+        DomainError: If the box has the wrong shape, order, or range.
+    """
     if len(values) != 4 or not all(math.isfinite(value) for value in values):
         raise DomainError(ErrorCode.INVALID_BBOX, "bbox requires four finite values", field=field)
     x1, y1, x2, y2 = values
@@ -33,14 +55,17 @@ def validate_bbox(values: list[float], *, field: str = "bbox") -> list[float]:
 
 
 def _cross(a: Point, b: Point, c: Point) -> float:
+    """Return the signed turn across three consecutive points."""
     return (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
 
 
 def _orientation(a: Point, b: Point, c: Point) -> float:
+    """Return the signed orientation of three points."""
     return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
 
 
 def _segments_intersect(a: Point, b: Point, c: Point, d: Point) -> bool:
+    """Check whether two segments cross strictly inside their spans."""
     return (
         _orientation(a, b, c) * _orientation(a, b, d) < -EPSILON
         and _orientation(c, d, a) * _orientation(c, d, b) < -EPSILON
@@ -48,6 +73,7 @@ def _segments_intersect(a: Point, b: Point, c: Point, d: Point) -> bool:
 
 
 def _signed_area(points: list[Point]) -> float:
+    """Return the signed area of a four-point polygon."""
     return (
         sum(
             points[index][0] * points[(index + 1) % 4][1] - points[(index + 1) % 4][0] * points[index][1]
@@ -58,16 +84,19 @@ def _signed_area(points: list[Point]) -> float:
 
 
 def _canonical(points: list[Point]) -> list[Point]:
+    """Order vertices consistently and start at the top-left point."""
     ordered = points if _signed_area(points) > 0 else list(reversed(points))
     start = min(range(4), key=lambda index: (ordered[index][1], ordered[index][0]))
     return ordered[start:] + ordered[:start]
 
 
 def _flatten(points: list[Point]) -> list[float]:
+    """Flatten point pairs into the public polygon representation."""
     return [coordinate for point in points for coordinate in point]
 
 
 def _fit_rectangle(points: list[Point]) -> tuple[list[Point], float]:
+    """Fit the closest oriented rectangle over candidate edge angles."""
     submitted = _canonical(points)
     best: tuple[list[Point], float] | None = None
     for index in range(4):
@@ -104,6 +133,26 @@ def validate_rotated_bbox(
     error_threshold: float,
     field: str = "polygon",
 ) -> RotatedGeometry:
+    """Validate, canonicalize, and optionally correct a rotated box.
+
+    Args:
+        values: Four normalized polygon vertices flattened as eight values.
+        correction_enabled: Whether a non-rectangular quadrilateral may be fit.
+        correction_threshold: Deviation above which a warning is returned.
+        error_threshold: Deviation above which correction is rejected.
+        field: Input field name used in structured errors.
+
+    Returns:
+        Submitted and canonical stored geometry with correction metadata.
+
+    Raises:
+        DomainError: If the polygon is invalid or needs excessive correction.
+
+    Notes:
+        Vertex order is canonicalized even when no geometric correction is
+        required. Source image coordinates remain normalized to ``[0, 1]``.
+    """
+    # Reject malformed, out-of-bounds, repeated, crossing, or concave input.
     if len(values) != 8 or not all(math.isfinite(value) for value in values):
         raise DomainError(
             ErrorCode.INVALID_ROTATED_BBOX,
@@ -129,6 +178,7 @@ def validate_rotated_bbox(
     ):
         raise DomainError(ErrorCode.INVALID_ROTATED_BBOX, "rotated bbox must be a convex quadrilateral", field=field)
 
+    # Fit the closest rectangle and keep correction inside normalized bounds.
     fitted, deviation = _fit_rectangle(points)
     if any(coordinate < -EPSILON or coordinate > 1 + EPSILON for point in fitted for coordinate in point):
         raise DomainError(
@@ -138,6 +188,7 @@ def validate_rotated_bbox(
         )
     fitted = [(min(1.0, max(0.0, x)), min(1.0, max(0.0, y))) for x, y in fitted]
     canonical_submitted = _canonical(points)
+    # Select exact, rejected, or corrected output from configured thresholds.
     if deviation <= EPSILON:
         return RotatedGeometry(list(values), _flatten(canonical_submitted), False, deviation)
     if not correction_enabled:

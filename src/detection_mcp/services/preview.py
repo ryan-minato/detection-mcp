@@ -16,6 +16,7 @@ def _preview_size(
     maximum_height: int,
     allow_upscale: bool,
 ) -> tuple[int, int, float]:
+    """Calculate bounded preview dimensions and their scale factor."""
     scale = min(maximum_width / image.width, maximum_height / image.height)
     if not allow_upscale:
         scale = min(scale, 1.0)
@@ -25,6 +26,7 @@ def _preview_size(
 
 
 def _color(category_id: int) -> tuple[int, int, int]:
+    """Derive a stable visible RGB color from a category identifier."""
     digest = hashlib.sha256(str(category_id).encode()).digest()
     return (64 + digest[0] % 160, 64 + digest[1] % 160, 64 + digest[2] % 160)
 
@@ -37,12 +39,33 @@ def render_preview(
     allow_upscale: bool,
     annotations: list[dict[str, Any]] | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
+    """Render an optional annotation overlay into an in-memory PNG.
+
+    Args:
+        image_path: Canonical source image path.
+        maximum_width: Maximum preview width in pixels.
+        maximum_height: Maximum preview height in pixels.
+        allow_upscale: Whether previews may exceed source dimensions.
+        annotations: Optional annotation records to draw over the image.
+
+    Returns:
+        PNG bytes and structured source, preview, scale, and orientation metadata.
+
+    Raises:
+        DomainError: If the source image cannot be decoded.
+        ValueError: If Pillow receives invalid dimensions or annotation geometry.
+
+    Notes:
+        Rendering is entirely in memory and never writes to the source image.
+    """
+    # Decode and resize the visual image while preserving aspect ratio.
     image, orientation_applied = open_visual_image(image_path)
     original_width, original_height = image.size
     width, height, scale = _preview_size(image, maximum_width, maximum_height, allow_upscale)
     if (width, height) != image.size:
         image = image.resize((width, height), Image.Resampling.LANCZOS)
 
+    # Draw stable category colors, geometry, and compact annotation labels.
     if annotations:
         draw = ImageDraw.Draw(image)
         line_width = max(2, round(min(width, height) / 300))
@@ -63,6 +86,7 @@ def render_preview(
             draw.rectangle(label_box, fill=color)
             draw.text(label_at, label, fill=(0, 0, 0))
 
+    # Encode the final preview and report how it relates to the source image.
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     metadata = {

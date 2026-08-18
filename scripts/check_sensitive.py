@@ -32,6 +32,7 @@ IPV4_PATTERN = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
 
 
 def git_paths(staged: bool) -> list[Path]:
+    """List candidate tracked or staged paths for the local scan."""
     command = [GIT, "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]
     if not staged:
         command = [GIT, "ls-files", "--cached", "--others", "--exclude-standard", "-z"]
@@ -40,6 +41,7 @@ def git_paths(staged: bool) -> list[Path]:
 
 
 def staged_bytes(path: Path) -> bytes:
+    """Read one file from the staged Git snapshot."""
     relative = path.relative_to(ROOT).as_posix()
     return subprocess.run(  # noqa: S603
         [GIT, "show", f":{relative}"], cwd=ROOT, check=True, capture_output=True
@@ -47,6 +49,7 @@ def staged_bytes(path: Path) -> bytes:
 
 
 def public_ip_matches(text: str) -> list[str]:
+    """Return syntactically valid public IPv4 values found in text."""
     matches: list[str] = []
     for candidate in IPV4_PATTERN.findall(text):
         try:
@@ -59,6 +62,7 @@ def public_ip_matches(text: str) -> list[str]:
 
 
 def main() -> int:
+    """Run the repository sensitivity scan and return its exit status."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--staged", action="store_true", help="scan the staged snapshot only")
     arguments = parser.parse_args()

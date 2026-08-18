@@ -10,6 +10,20 @@ from detection_mcp.services.paths import SUPPORTED_IMAGE_SUFFIXES
 
 
 def discover_images(root: Path) -> list[str]:
+    """Discover supported images below a dataset root.
+
+    Args:
+        root: Canonical dataset directory to scan recursively.
+
+    Returns:
+        Stable, case-insensitively sorted POSIX relative paths.
+
+    Raises:
+        DomainError: If the directory tree cannot be scanned.
+
+    Notes:
+        Discovery reads directory metadata only and never changes image files.
+    """
     try:
         paths = [
             path.relative_to(root).as_posix()
@@ -22,6 +36,20 @@ def discover_images(root: Path) -> list[str]:
 
 
 def open_visual_image(path: Path) -> tuple[Image.Image, bool]:
+    """Decode an image in visual orientation without changing its source.
+
+    Args:
+        path: Canonical path to a supported image file.
+
+    Returns:
+        An in-memory RGB image and whether EXIF orientation was applied.
+
+    Raises:
+        DomainError: If Pillow cannot identify or decode the image.
+
+    Notes:
+        Pixel data is fully loaded before the source file handle is closed.
+    """
     try:
         with Image.open(path, mode="r") as source:
             orientation = source.getexif().get(274, 1)

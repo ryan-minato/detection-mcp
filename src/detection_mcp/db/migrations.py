@@ -47,6 +47,20 @@ MIGRATIONS: tuple[str, ...] = (
 
 
 def migrate(connection: sqlite3.Connection) -> None:
+    """Apply unapplied schema migrations in version order.
+
+    Args:
+        connection: Open SQLite connection to migrate.
+
+    Returns:
+        None.
+
+    Raises:
+        sqlite3.Error: If schema inspection or a migration statement fails.
+
+    Notes:
+        Migrations are forward-only and recorded after their scripts complete.
+    """
     connection.execute(
         "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)"
     )

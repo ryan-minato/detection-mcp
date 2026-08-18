@@ -5,6 +5,8 @@ from typing import Any
 
 
 class ErrorCode(StrEnum):
+    """Stable error identifiers returned by MCP tools."""
+
     DATASET_NOT_FOUND = "DATASET_NOT_FOUND"
     DATASET_DELETED = "DATASET_DELETED"
     CATEGORY_NOT_FOUND = "CATEGORY_NOT_FOUND"
@@ -31,7 +33,18 @@ class ErrorCode(StrEnum):
 
 
 class DomainError(Exception):
-    """A recoverable error with a stable machine-readable representation."""
+    """Represent a recoverable failure at a domain boundary.
+
+    Args:
+        code: Stable machine-readable failure code.
+        message: Safe human-readable failure summary.
+        field: Optional input field associated with the failure.
+        details: Optional structured context safe to return to the caller.
+
+    Notes:
+        Messages and details are part of the MCP error contract and must not
+        contain private filesystem paths or sensitive values.
+    """
 
     def __init__(
         self,
@@ -48,6 +61,14 @@ class DomainError(Exception):
         self.details = details or {}
 
     def as_dict(self) -> dict[str, Any]:
+        """Serialize the error for an MCP response.
+
+        Returns:
+            A JSON-compatible error object with stable keys.
+
+        Notes:
+            The ``field`` key is omitted when no input field is associated.
+        """
         result: dict[str, Any] = {
             "code": self.code.value,
             "message": self.message,

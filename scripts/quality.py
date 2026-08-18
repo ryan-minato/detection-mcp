@@ -24,6 +24,7 @@ COMMANDS: tuple[tuple[str, ...], ...] = (
 
 
 def main() -> int:
+    """Run quality commands in order and return the first failure status."""
     for command in COMMANDS:
         print(f"+ {' '.join(command)}", flush=True)
         completed = subprocess.run(command, cwd=ROOT, check=False)  # noqa: S603

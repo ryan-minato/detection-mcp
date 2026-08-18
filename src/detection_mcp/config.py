@@ -11,10 +11,12 @@ ENV_PREFIX = "DETECTION_MCP_"
 
 
 def _env(name: str) -> str | None:
+    """Read one namespaced environment variable."""
     return os.environ.get(f"{ENV_PREFIX}{name}")
 
 
 def _bool(value: str | bool | None, default: bool) -> bool:
+    """Normalize a boolean configuration value."""
     if value is None:
         return default
     if isinstance(value, bool):
@@ -28,6 +30,7 @@ def _bool(value: str | bool | None, default: bool) -> bool:
 
 
 def _paths(value: list[str] | tuple[str, ...] | str | None) -> tuple[Path, ...]:
+    """Resolve a path list supplied directly or through the environment."""
     if value is None:
         return ()
     raw = value if isinstance(value, (list, tuple)) else value.split(os.pathsep)
@@ -36,6 +39,25 @@ def _paths(value: list[str] | tuple[str, ...] | str | None) -> tuple[Path, ...]:
 
 @dataclass(frozen=True, slots=True)
 class Settings:
+    """Validated runtime settings for the MCP application.
+
+    Attributes:
+        db_path: SQLite database location.
+        random_seed: Default seed for stable randomized image ordering.
+        preview_max_width: Maximum generated preview width in pixels.
+        preview_max_height: Maximum generated preview height in pixels.
+        rotated_correction_enabled: Whether near-rectangles may be corrected.
+        rotated_correction_threshold: Deviation that adds a correction warning.
+        rotated_error_threshold: Deviation above which correction is rejected.
+        allowed_dataset_roots: Optional allowlist for dataset directories.
+        allowed_export_roots: Optional allowlist for export destinations.
+        log_level: Python logging level name.
+
+    Notes:
+        Direct values take precedence over ``DETECTION_MCP_*`` variables.
+        Empty root allowlists permit any resolved path.
+    """
+
     db_path: Path
     random_seed: int = 42
     preview_max_width: int = 768
@@ -49,9 +71,21 @@ class Settings:
 
     @classmethod
     def from_values(cls, **values: Any) -> "Settings":
+        """Build settings from explicit values, environment, and defaults.
+
+        Args:
+            **values: CLI or programmatic overrides keyed by setting name.
+
+        Returns:
+            A fully resolved and validated settings instance.
+
+        Raises:
+            ValueError: If a numeric, boolean, or threshold value is invalid.
+        """
         default_db = user_data_path("detection-mcp") / "annotations.db"
 
         def choose(name: str, default: Any) -> Any:
+            """Choose an explicit value, environment value, or default."""
             value = values.get(name)
             if value is not None:
                 return value
@@ -82,6 +116,14 @@ class Settings:
         return settings
 
     def validate(self) -> None:
+        """Validate relationships between configured limits.
+
+        Returns:
+            None.
+
+        Raises:
+            ValueError: If preview dimensions or correction thresholds are invalid.
+        """
         if self.preview_max_width <= 0 or self.preview_max_height <= 0:
             raise ValueError("preview dimensions must be positive")
         if not 0 <= self.rotated_correction_threshold < self.rotated_error_threshold:

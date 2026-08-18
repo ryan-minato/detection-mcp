@@ -13,11 +13,13 @@ from detection_mcp.services.paths import resolve_image
 
 
 def _bbox_pixels(geometry: list[float], width: int, height: int) -> list[float]:
+    """Convert normalized xyxy coordinates to pixel xywh coordinates."""
     x1, y1, x2, y2 = geometry
     return [x1 * width, y1 * height, (x2 - x1) * width, (y2 - y1) * height]
 
 
 def _polygon_pixels(geometry: list[float], width: int, height: int) -> list[float]:
+    """Convert a normalized polygon to pixel coordinates."""
     return [value * (width if index % 2 == 0 else height) for index, value in enumerate(geometry)]
 
 
@@ -31,6 +33,29 @@ def export_metadata(
     categories: list[dict[str, Any]],
     annotations: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    """Validate and atomically write a metadata JSONL export.
+
+    Args:
+        root: Canonical dataset directory containing immutable source images.
+        output_path: Authorized destination file.
+        mode: AutoTrain-compatible or extended export layout.
+        overwrite: Whether an existing destination may be replaced.
+        completed_images: Relative paths marked completed for export.
+        categories: Active category records ordered for ID remapping.
+        annotations: Annotation records to group by completed image.
+
+    Returns:
+        Export counts, category mapping, exclusions, and destination metadata.
+
+    Raises:
+        DomainError: If preflight fails, a source image is invalid, the layout is
+            incompatible, or another writer owns the destination lock.
+        OSError: If the temporary or destination file cannot be written.
+
+    Notes:
+        Output is assembled before writing, then fsynced and replaced atomically.
+        Source images are opened read-only and never modified.
+    """
     if output_path.exists() and not overwrite:
         raise DomainError(ErrorCode.OUTPUT_ALREADY_EXISTS, "output file already exists", field="output_path")
     if mode is ExportMode.AUTOTRAIN and len(completed_images) < 5:
@@ -40,6 +65,7 @@ def export_metadata(
             details={"completed_images": len(completed_images)},
         )
 
+    # Build the contiguous category mapping and group eligible annotations.
     category_mapping = {category["id"]: index for index, category in enumerate(categories)}
     by_image: dict[str, list[dict[str, Any]]] = {image_path: [] for image_path in completed_images}
     ignored_rotated = 0
@@ -51,6 +77,7 @@ def export_metadata(
         if annotation["image_path"] in by_image:
             by_image[annotation["image_path"]].append(annotation)
 
+    # Validate every image and assemble all JSONL records before touching output.
     lines: list[str] = []
     for image_path in completed_images:
         if mode is ExportMode.AUTOTRAIN:
@@ -79,6 +106,7 @@ def export_metadata(
                 ignored_rotated += 1
         lines.append(json.dumps({"file_name": image_path, "objects": objects}, separators=(",", ":")))
 
+    # Serialize writers and replace the destination only after a durable temp write.
     lock_path = output_path.with_name(f".{output_path.name}.lock")
     lock_descriptor: int | None = None
     temporary_path: Path | None = None
