@@ -1,0 +1,34 @@
+name: Feature
+description: Track one focused product or harness change.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: Describe the observable result, not an implementation preference.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List the checks that make this issue complete.
+      placeholder: |
+        - [ ] Behavior is covered by tests.
+        - [ ] English and Chinese documentation stay synchronized.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and compatibility
+      description: Note filesystem, protocol, migration, privacy, or compatibility risks.
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: Name the targeted tests plus the required `just check` gate.
+    validations:
+      required: true
