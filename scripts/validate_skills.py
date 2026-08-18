@@ -1,4 +1,4 @@
-"""Validate the structure and local links of bundled Agent Skills."""
+"""Validate repository Agent Skill structure and local links."""
 
 import re
 import sys
@@ -8,12 +8,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS_ROOT = ROOT / "skills"
-PACKAGED_SKILLS_ROOT = ROOT / "src" / "detection_mcp" / "skills"
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_PATTERN = re.compile(r"\[[^]]*]\(([^)]+)\)")
 
 
 def validate_skill(skill_dir: Path) -> list[str]:
+    """Return structural and link errors for one canonical Agent Skill."""
     errors: list[str] = []
     entrypoint = skill_dir / "SKILL.md"
     if not entrypoint.is_file():
@@ -62,22 +62,13 @@ def validate_skill(skill_dir: Path) -> list[str]:
 
 
 def main() -> int:
+    """Validate repository Agent Skills and return a status."""
     errors: list[str] = []
     skill_dirs = sorted(path for path in SKILLS_ROOT.iterdir() if path.is_dir()) if SKILLS_ROOT.exists() else []
     if not skill_dirs:
         errors.append("skills: no skill directories found")
     for skill_dir in skill_dirs:
         errors.extend(validate_skill(skill_dir))
-    source_files = {
-        path.relative_to(SKILLS_ROOT): path.read_bytes() for path in SKILLS_ROOT.glob("**/*") if path.is_file()
-    }
-    packaged_files = {
-        path.relative_to(PACKAGED_SKILLS_ROOT): path.read_bytes()
-        for path in PACKAGED_SKILLS_ROOT.glob("**/*")
-        if path.is_file()
-    }
-    if source_files != packaged_files:
-        errors.append("packaged Agent Skills do not match the canonical skills directory")
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)

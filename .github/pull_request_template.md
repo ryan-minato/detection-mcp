@@ -18,7 +18,7 @@ Closes #
 ## Documentation and compatibility
 
 - [ ] English and Chinese README content remains synchronized
-- [ ] Tool/configuration changes are reflected in docs and bundled Skills
+- [ ] Tool/configuration changes are reflected in docs and repository Skills
 - [ ] Database, protocol, filesystem, and migration effects are described
 
 ## Safety

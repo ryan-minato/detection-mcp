@@ -8,7 +8,7 @@ The server owns annotation state but treats every source image as immutable.
 ```text
 src/detection_mcp/    Python package and MCP server
 tests/                Unit, integration, packaging, and container tests
-skills/               Agent Skills shipped with the project
+skills/               Installable Agent Skills published from the repository
 .agents/knowledge/    Agent-facing project knowledge
 docs/                 Human-facing technical documentation
 scripts/              Repository validation commands
@@ -86,7 +86,7 @@ canonical script or tool command so CI and local execution share behavior.
 | When this changes | Update in the same change |
 |---|---|
 | Tool name, schema, or behavior | Tool reference, product Skills, and contract tests |
-| Canonical file under `skills/` | Matching packaged file under `src/detection_mcp/skills/` |
+| File under `skills/` | Skill validation and README installation instructions |
 | CLI or environment setting | Both READMEs, configuration docs, and container examples |
 | Architecture or module boundary | Architecture knowledge and affected tests |
 | Quality command or hook | Quality knowledge, CI, and contribution guide |

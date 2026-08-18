@@ -54,7 +54,16 @@ The server uses STDIO: protocol messages go to stdout and logs go to stderr. CLI
 5. Preview the overlay and correct annotations before marking the image completed.
 6. Export completed images to AutoTrain or extended JSONL.
 
-The bundled `object-detection-annotation` and `detection-mcp-setup` Agent Skills can be located after installation with `detection-mcp --skills-path`.
+## Install the Agent Skills
+
+The Agent Skills live only in the repository's root `skills/` directory. They are not included in the Python wheel, source distribution, or container image. Install either Skill directly from GitHub with the [skills CLI](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add ryan-minato/detection-mcp --skill object-detection-annotation
+npx skills add ryan-minato/detection-mcp --skill detection-mcp-setup
+```
+
+The default installation is project-local. Add `--global` when the Skill should be available across projects.
 
 ## Tool groups
 

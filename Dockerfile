@@ -7,7 +7,6 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 WORKDIR /build
 
 COPY LICENSE README.md pyproject.toml ./
-COPY skills ./skills
 COPY src ./src
 
 RUN python -m venv /opt/detection-mcp \

@@ -25,12 +25,6 @@ def test_cli_prints_version(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Capt
     assert capsys.readouterr().out == "1.2.3\n"
 
 
-def test_cli_prints_skills_path(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.setattr(sys, "argv", ["detection-mcp", "--skills-path"])
-    cli.main()
-    assert capsys.readouterr().out.rstrip().endswith("detection_mcp/skills")
-
-
 def test_cli_builds_settings_and_runs_server(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     server = FakeServer()
     captured: dict[str, Any] = {}

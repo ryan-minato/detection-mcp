@@ -66,7 +66,6 @@ jobs:
           uv venv clean-venv
           uv pip install --python clean-venv/bin/python dist/*.whl
           clean-venv/bin/detection-mcp --version
-          test -f "$(clean-venv/bin/detection-mcp --skills-path)/object-detection-annotation/SKILL.md"
 
   container:
     name: Container build and smoke test
@@ -88,5 +87,5 @@ jobs:
           load: true
           push: false
           tags: detection-mcp:local
-      - name: Verify runtime and bundled Skills
+      - name: Verify runtime
         run: just docker-smoke

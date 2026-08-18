@@ -2,7 +2,6 @@
 
 import argparse
 import importlib.metadata
-import importlib.resources
 import logging
 import sys
 from pathlib import Path
@@ -12,9 +11,9 @@ from detection_mcp.server import create_server
 
 
 def _parser() -> argparse.ArgumentParser:
+    """Build the command-line parser used by the console entry point."""
     parser = argparse.ArgumentParser(prog="detection-mcp")
     parser.add_argument("--version", action="store_true", help="print the installed version and exit")
-    parser.add_argument("--skills-path", action="store_true", help="print the bundled Agent Skills path and exit")
     parser.add_argument("--db-path", type=Path)
     parser.add_argument("--random-seed", type=int)
     parser.add_argument("--preview-max-width", type=int)
@@ -35,17 +34,25 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Run informational CLI commands or start the STDIO MCP server.
+
+    Returns:
+        None.
+
+    Raises:
+        SystemExit: If argument parsing fails or an informational command exits.
+        OSError: If application storage cannot be initialized.
+
+    Notes:
+        Protocol output is written to stdout by FastMCP; logs and argument errors
+        use stderr so they cannot corrupt the STDIO transport.
+    """
     arguments = _parser().parse_args()
     if arguments.version:
         sys.stdout.write(f"{importlib.metadata.version('detection-mcp')}\n")
         return
-    if arguments.skills_path:
-        sys.stdout.write(f"{importlib.resources.files('detection_mcp').joinpath('skills')}\n")
-        return
     try:
-        settings = Settings.from_values(
-            **{key: value for key, value in vars(arguments).items() if key not in {"version", "skills_path"}}
-        )
+        settings = Settings.from_values(**{key: value for key, value in vars(arguments).items() if key != "version"})
     except ValueError as error:
         _parser().error(str(error))
     logging.basicConfig(

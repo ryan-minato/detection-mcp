@@ -18,9 +18,6 @@ detection-mcp = "detection_mcp.cli:main"
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
 
-[tool.uv.build-backend]
-source-include = ["skills/**"]
-
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.2,<5.0.0",

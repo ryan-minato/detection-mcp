@@ -54,7 +54,16 @@ Server 使用 STDIO：协议消息写入 stdout，日志写入 stderr。CLI 参�
 5. 通过叠加预览复核并修正标注，再将图片标记为完成。
 6. 将已完成图片导出为 AutoTrain 或扩展 JSONL。
 
-安装后可运行 `detection-mcp --skills-path`，找到随包提供的 `object-detection-annotation` 和 `detection-mcp-setup` Agent Skills。
+## 安装 Agent Skills
+
+Agent Skills 只保存在仓库根目录的 `skills/` 中，不包含在 Python wheel、源码分发包或容器镜像内。使用 [skills CLI](https://github.com/vercel-labs/skills) 可以直接从 GitHub 安装：
+
+```bash
+npx skills add ryan-minato/detection-mcp --skill object-detection-annotation
+npx skills add ryan-minato/detection-mcp --skill detection-mcp-setup
+```
+
+默认安装到当前项目；需要在多个项目中使用时，可添加 `--global`。
 
 ## Tool 分组
 

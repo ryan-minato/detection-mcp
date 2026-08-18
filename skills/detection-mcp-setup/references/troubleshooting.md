@@ -11,5 +11,5 @@
   writable storage rather than a temporary container layer.
 - If previews appear rotated relative to raw metadata, use the dimensions and
   pixels returned by the preview tool; the server applies EXIF orientation.
-- If a bundled skill path is missing, reinstall from a built wheel and rerun
-  `detection-mcp --skills-path`.
+- If an Agent Skill is missing, install it directly from the repository root with
+  `npx skills add ryan-minato/detection-mcp --skill <skill-name>`.

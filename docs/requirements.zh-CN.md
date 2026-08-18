@@ -973,9 +973,8 @@ skills/detection-mcp-setup/
 ### 21.3 Skills 发布要求
 
 - 仓库根目录保留 `skills/`。
-- wheel/sdist 应包含 Skills，或提供明确的安装/复制机制。
-- Docker 镜像中应包含 Skills 的只读副本，例如 `/opt/skills`，便于提取和参考。
-- README 必须解释如何将 Skills 安装到兼容 Agent 的 skills directory。
+- Skills 只通过仓库根目录发布，不包含在 wheel、sdist 或 Docker 镜像中。
+- README 必须提供从 GitHub 仓库直接安装 Skills 的命令。
 - CI 必须校验每个 `SKILL.md` frontmatter、目录名一致性、内部 reference 链接完整性。
 
 ## 22. 推荐仓库结构

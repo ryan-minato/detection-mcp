@@ -31,7 +31,7 @@ test *args:
 test-cov:
     uv run pytest --cov=detection_mcp --cov-branch --cov-report=term-missing --cov-fail-under=90
 
-# Validate every bundled Agent Skill.
+# Validate every repository Agent Skill.
 skills:
     uv run python scripts/validate_skills.py
 
@@ -68,4 +68,3 @@ docker-test:
 # Smoke-test an already built container image.
 docker-smoke image="detection-mcp:local":
     docker run --rm {{image}} --version
-    docker run --rm {{image}} --skills-path

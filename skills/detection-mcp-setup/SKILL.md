@@ -1,7 +1,7 @@
 ---
 name: detection-mcp-setup
 description: >
-  Configures and verifies a local detection-mcp STDIO server and its filesystem boundaries. Use when installing the server, adding it to an MCP client, selecting a SQLite state path, allowing dataset or export roots, troubleshooting startup, or confirming the bundled annotation skill path. Do not use for performing annotations or changing project source code.
+  Configures and verifies a local detection-mcp STDIO server and its filesystem boundaries. Use when installing the server, adding it to an MCP client, selecting a SQLite state path, allowing dataset or export roots, or troubleshooting startup. Do not use for performing annotations or changing project source code.
 license: Apache-2.0
 compatibility: Requires Python 3.12 or newer and a local MCP client that supports STDIO servers.
 metadata:
@@ -20,7 +20,6 @@ Configure the smallest filesystem scope the annotation task needs, then verify t
 4. Allow export destinations separately with `--allowed-export-root` or `DETECTION_MCP_ALLOWED_EXPORT_ROOTS`.
 5. Configure the MCP client to launch `detection-mcp` over STDIO. Keep logs on stderr and do not wrap the command with software that writes banners to stdout.
 6. Start a client session and call `list_datasets` to verify the protocol connection.
-7. Run `detection-mcp --skills-path` when the client needs the installed annotation skill location.
 
 Done when: the client can call `list_datasets`, the database survives a restart, dataset roots are read-only by policy, and exports are restricted to their intended destination roots.
 

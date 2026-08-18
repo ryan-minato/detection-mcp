@@ -17,4 +17,4 @@ CLI options take precedence over environment variables, followed by built-in def
 
 Environment root lists use the operating system path separator. Empty allowed-root lists retain the portable default, but deployments should always configure explicit roots. Dataset permission never grants export permission.
 
-Run `detection-mcp --skills-path` to locate installed Agent Skills. Run `detection-mcp --version` without starting an MCP session.
+Run `detection-mcp --version` without starting an MCP session. Agent Skills are installed separately from the repository root; see the installation commands in the README.
