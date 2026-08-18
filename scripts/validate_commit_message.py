@@ -14,8 +14,8 @@ def main() -> int:
         return 2
     lines = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
     header = next((line for line in lines if line and not line.startswith("#")), "")
-    if len(header) > 100 or HEADER.fullmatch(header) is None:
-        print("Commit header must be an English Conventional Commit of at most 100 characters.", file=sys.stderr)
+    if len(header) > 50 or HEADER.fullmatch(header) is None:
+        print("Commit header must be an English Conventional Commit of at most 50 characters.", file=sys.stderr)
         return 1
     return 0
 

@@ -90,8 +90,8 @@ CI separates inexpensive quality controls from tests:
 - `tests.yml` runs only for pull requests and pushes to the default branch. Pull
   request runs use the head SHA and cancel older in-progress runs for the same PR,
   so expensive tests run only for its latest commit.
-- Test CI covers supported Python versions, a clean wheel install, and the runtime
-  container smoke test. Security CI scans repository history separately.
+- Test CI covers supported Python versions, a clean wheel install, and a functional
+  runtime container test. Security CI scans repository history separately.
 
 ## Test Shape
 

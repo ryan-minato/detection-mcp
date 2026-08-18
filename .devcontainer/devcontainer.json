@@ -13,5 +13,5 @@
 			"toolsToInstall": "pre-commit,rust-just"
 		}
 	},
-	"postCreateCommand": "pre-commit install && pre-commit autoupdate"
+	"postCreateCommand": "uv sync --locked --all-groups && uv run pre-commit install --install-hooks --hook-type pre-commit --hook-type commit-msg --hook-type pre-push"
 }
