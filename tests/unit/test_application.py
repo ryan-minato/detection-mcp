@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from filelock import FileLock
 
 from detection_mcp.errors import DomainError, ErrorCode
 from detection_mcp.models import AnnotationType, BBoxCreate, CategoryCreate, ExportMode, ImageStatus, RotatedBBoxCreate
@@ -136,6 +137,25 @@ def test_autotrain_export_requires_five_completed_images(
     with pytest.raises(DomainError) as captured:
         application.export_metadata_jsonl(dataset_id, str(tmp_path / "metadata.jsonl"))
     assert captured.value.code is ErrorCode.AUTOTRAIN_LAYOUT_INCOMPATIBLE
+
+
+def test_export_recovers_stale_lock_and_rejects_active_writer(
+    application: Application,
+    image_root: Path,
+    tmp_path: Path,
+) -> None:
+    dataset_id, _ = _dataset_and_category(application, image_root)
+    application.set_image_status(dataset_id, "0.png", ImageStatus.COMPLETED)
+    stale_output = tmp_path / "stale.jsonl"
+    stale_output.with_name(f".{stale_output.name}.lock").write_text("stale")
+
+    application.export_metadata_jsonl(dataset_id, str(stale_output), ExportMode.EXTENDED)
+
+    locked_output = tmp_path / "locked.jsonl"
+    lock = FileLock(locked_output.with_name(f".{locked_output.name}.lock"))
+    with lock, pytest.raises(DomainError) as captured:
+        application.export_metadata_jsonl(dataset_id, str(locked_output), ExportMode.EXTENDED)
+    assert captured.value.code is ErrorCode.OUTPUT_ALREADY_EXISTS
 
 
 def test_category_edit_restore_and_validation(application: Application, image_root: Path) -> None:

@@ -25,11 +25,13 @@ def discover_images(root: Path) -> list[str]:
         Discovery reads directory metadata only and never changes image files.
     """
     try:
-        paths = [
-            path.relative_to(root).as_posix()
-            for path in root.rglob("*")
-            if path.is_file() and path.suffix.lower() in SUPPORTED_IMAGE_SUFFIXES
-        ]
+        paths = []
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in SUPPORTED_IMAGE_SUFFIXES:
+                continue
+            if not path.resolve().is_relative_to(root):
+                continue
+            paths.append(path.relative_to(root).as_posix())
     except OSError as error:
         raise DomainError(ErrorCode.IMAGE_ROOT_UNAVAILABLE, "dataset root cannot be scanned") from error
     return sorted(paths, key=lambda value: (unicodedata.normalize("NFC", value).casefold(), value))

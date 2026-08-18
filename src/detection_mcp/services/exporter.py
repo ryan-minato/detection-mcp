@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from filelock import FileLock, Timeout
+
 from detection_mcp.errors import DomainError, ErrorCode
 from detection_mcp.models import ExportMode
 from detection_mcp.services.images import open_visual_image
@@ -108,38 +110,35 @@ def export_metadata(
 
     # Serialize writers and replace the destination only after a durable temp write.
     lock_path = output_path.with_name(f".{output_path.name}.lock")
-    lock_descriptor: int | None = None
+    lock = FileLock(lock_path, timeout=0)
     temporary_path: Path | None = None
     try:
-        lock_descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-        if output_path.exists() and not overwrite:
-            raise DomainError(ErrorCode.OUTPUT_ALREADY_EXISTS, "output file already exists", field="output_path")
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            newline="\n",
-            dir=output_path.parent,
-            prefix=f".{output_path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as temporary:
-            temporary_path = Path(temporary.name)
-            for line in lines:
-                temporary.write(f"{line}\n")
-            temporary.flush()
-            os.fsync(temporary.fileno())
-        os.replace(temporary_path, output_path)
-        temporary_path = None
-    except FileExistsError as error:
+        with lock:
+            if output_path.exists() and not overwrite:
+                raise DomainError(ErrorCode.OUTPUT_ALREADY_EXISTS, "output file already exists", field="output_path")
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                newline="\n",
+                dir=output_path.parent,
+                prefix=f".{output_path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                for line in lines:
+                    temporary.write(f"{line}\n")
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            os.replace(temporary_path, output_path)
+            temporary_path = None
+    except Timeout as error:
         raise DomainError(
             ErrorCode.OUTPUT_ALREADY_EXISTS,
             "another export is writing this output path",
             field="output_path",
         ) from error
     finally:
-        if lock_descriptor is not None:
-            os.close(lock_descriptor)
-            lock_path.unlink(missing_ok=True)
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
 

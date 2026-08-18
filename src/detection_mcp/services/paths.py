@@ -121,7 +121,8 @@ def resolve_output(output_path: str, allowed_roots: tuple[Path, ...]) -> Path:
         The canonical destination path.
 
     Raises:
-        DomainError: If the path is outside the allowlist or its parent is absent.
+        DomainError: If the path is outside the allowlist, its parent is absent,
+            or an existing destination is not a regular file.
 
     Notes:
         This function validates the destination but does not create it.
@@ -137,6 +138,12 @@ def resolve_output(output_path: str, allowed_roots: tuple[Path, ...]) -> Path:
         raise DomainError(
             ErrorCode.OUTPUT_PATH_NOT_ALLOWED,
             "output parent does not exist or is not a directory",
+            field="output_path",
+        )
+    if path.exists() and not path.is_file():
+        raise DomainError(
+            ErrorCode.OUTPUT_PATH_NOT_ALLOWED,
+            "output path exists and is not a regular file",
             field="output_path",
         )
     return path

@@ -21,6 +21,8 @@ def test_path_boundaries_and_formats(tmp_path: Path) -> None:
     assert portable_image_path(r"nested\image.png") == "nested/image.png"
     assert resolve_image(root, "image.png")[0] == "image.png"
     assert resolve_output(str(tmp_path / "output.jsonl"), (tmp_path,)) == (tmp_path / "output.jsonl").resolve()
+    output_directory = root / "output.jsonl"
+    output_directory.mkdir()
 
     cases = [
         (lambda: resolve_dataset_root(str(root / "missing"), (tmp_path,)), ErrorCode.IMAGE_ROOT_UNAVAILABLE),
@@ -34,11 +36,22 @@ def test_path_boundaries_and_formats(tmp_path: Path) -> None:
             ErrorCode.OUTPUT_PATH_NOT_ALLOWED,
         ),
         (lambda: resolve_output(str(root / "output.jsonl"), (tmp_path / "other",)), ErrorCode.OUTPUT_PATH_NOT_ALLOWED),
+        (lambda: resolve_output(str(output_directory), (root,)), ErrorCode.OUTPUT_PATH_NOT_ALLOWED),
     ]
     for operation, code in cases:
         with pytest.raises(DomainError) as captured:
             operation()
         assert captured.value.code is code
+
+
+def test_discovery_excludes_symlinks_outside_the_dataset(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    Image.new("RGB", (10, 10)).save(root / "inside.png")
+    Image.new("RGB", (10, 10)).save(tmp_path / "outside.png")
+    (root / "linked.png").symlink_to(tmp_path / "outside.png")
+
+    assert discover_images(root.resolve()) == ["inside.png"]
 
 
 def test_discovery_sorting_decode_failure_and_preview_overlay(tmp_path: Path) -> None:
