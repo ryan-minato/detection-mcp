@@ -844,6 +844,7 @@ class Application:
         max_width: int | None = None,
         max_height: int | None = None,
         allow_upscale: bool = False,
+        show_grid: bool = True,
     ) -> tuple[bytes, dict[str, Any]]:
         """Create an orientation-corrected preview of one image.
 
@@ -853,6 +854,7 @@ class Application:
             max_width: Optional requested width limit.
             max_height: Optional requested height limit.
             allow_upscale: Whether a small image may be enlarged.
+            show_grid: Whether to overlay the positioning grid.
 
         Returns:
             In-memory PNG bytes and structured preview metadata.
@@ -877,6 +879,7 @@ class Application:
             maximum_width=actual_width,
             maximum_height=actual_height,
             allow_upscale=allow_upscale,
+            show_grid=show_grid,
         )
         metadata.update(
             {
@@ -896,6 +899,7 @@ class Application:
         include_deleted_categories: bool = False,
         max_width: int | None = None,
         max_height: int | None = None,
+        show_grid: bool = True,
     ) -> tuple[bytes, dict[str, Any]]:
         """Create an image preview with selected annotations overlaid.
 
@@ -907,6 +911,7 @@ class Application:
             include_deleted_categories: Whether deleted-category annotations render.
             max_width: Optional requested width limit.
             max_height: Optional requested height limit.
+            show_grid: Whether to overlay the positioning grid.
 
         Returns:
             In-memory PNG bytes and preview and annotation metadata.
@@ -942,6 +947,7 @@ class Application:
             maximum_height=actual_height,
             allow_upscale=False,
             annotations=listed["annotations"],
+            show_grid=show_grid,
         )
         metadata.update(
             {

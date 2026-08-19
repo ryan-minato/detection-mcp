@@ -13,6 +13,7 @@ Return an orientation-corrected PNG preview and its visual-coordinate metadata b
 | `max_width` | integer or null | No | `null` | Optional positive width limit. |
 | `max_height` | integer or null | No | `null` | Optional positive height limit. |
 | `allow_upscale` | boolean | No | `false` | Permit enlargement of a smaller image. |
+| `show_grid` | boolean | No | `true` | Overlay a semi-transparent grid: 5 major cells per axis, each with 5 minor intervals and marked intersections. |
 
 ## Preconditions
 
@@ -21,7 +22,9 @@ The dataset and image must be available, decodable, and contained within the dat
 ## Behavior and invariants
 
 Uses orientation-corrected visual dimensions. Requested dimensions are clamped to
-server limits; no preview file or source file is written.
+server limits; no preview file or source file is written. Unless disabled, a white
+semi-transparent grid divides each axis into five major cells and each major cell
+into five minor divisions, with grid intersections marked for position counting.
 
 ## Output
 
@@ -38,10 +41,11 @@ The MCP content contains a PNG image and a success envelope. `data` contains
 ## Example
 
 ```json
-{ "dataset_id": 17, "image_path": "camera/0001.jpg", "max_width": 1280 }
+{ "dataset_id": 17, "image_path": "camera/0001.jpg", "max_width": 1280, "show_grid": true }
 ```
 
 ## Acceptance criteria
 
 - A valid request returns PNG content and metadata matching orientation-corrected dimensions.
+- The positioning grid is enabled by default and can be disabled without changing preview metadata.
 - Invalid dimensions or an unavailable image fail without writing a file.

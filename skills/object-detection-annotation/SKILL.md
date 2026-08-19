@@ -18,7 +18,7 @@ Use the MCP tools as a reviewable annotation workflow, not as an image editor.
 2. Call `list_categories`, then call `get_category` for every category selected for the current image. Treat the returned descriptions as authoritative. Add or edit categories only when the task explicitly requires it.
 3. Call `list_images` with an explicit status and order. Work on one returned portable path at a time.
 4. Call `set_image_status` with `in_progress` before inspecting or changing the selected image.
-5. Call `preview_image` before deciding geometry. Use the returned orientation-corrected dimensions as the coordinate space.
+5. Call `preview_image` before deciding geometry. Its positioning grid is enabled by default: use its five major cells and five minor divisions per cell to estimate normalized coordinates, and use the returned orientation-corrected dimensions as the coordinate space. Set `show_grid` to `false` only when an unobstructed preview is needed.
 6. Call `list_annotations` for the selected image before every write. Preserve valid existing work and avoid creating duplicate objects.
 7. Add or edit annotations:
    - Use `add_bbox_annotations` for axis-aligned objects.

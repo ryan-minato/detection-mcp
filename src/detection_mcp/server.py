@@ -429,8 +429,9 @@ def create_server(settings: Settings) -> FastMCP:
         max_width: int | None = None,
         max_height: int | None = None,
         allow_upscale: bool = False,
+        show_grid: bool = True,
     ) -> ToolResult:
-        """Return an orientation-corrected preview and size metadata.
+        """Return an orientation-corrected preview with an optional 5×5 positioning grid.
 
         Args:
             dataset_id: Owning dataset identifier.
@@ -438,6 +439,8 @@ def create_server(settings: Settings) -> FastMCP:
             max_width: Optional requested width limit.
             max_height: Optional requested height limit.
             allow_upscale: Whether a small image may be enlarged.
+            show_grid: Whether to overlay a grid of five major cells per axis,
+                each subdivided into five intervals with marked intersections.
 
         Returns:
             A tool result containing PNG image content and structured metadata.
@@ -448,7 +451,14 @@ def create_server(settings: Settings) -> FastMCP:
         Notes:
             Dimensions are clamped to server limits and no file is written.
         """
-        image, metadata = application.preview_image(dataset_id, image_path, max_width, max_height, allow_upscale)
+        image, metadata = application.preview_image(
+            dataset_id,
+            image_path,
+            max_width,
+            max_height,
+            allow_upscale,
+            show_grid,
+        )
         return _preview_result(image, PreviewMetadata, metadata)
 
     @mcp.tool(output_schema=SuccessEnvelope[AnnotationPreviewMetadata].model_json_schema())
@@ -460,8 +470,9 @@ def create_server(settings: Settings) -> FastMCP:
         include_deleted_categories: bool = False,
         max_width: int | None = None,
         max_height: int | None = None,
+        show_grid: bool = True,
     ) -> ToolResult:
-        """Return an in-memory annotation overlay and metadata.
+        """Return an annotation preview with an optional 5×5 positioning grid.
 
         Args:
             dataset_id: Owning dataset identifier.
@@ -471,6 +482,8 @@ def create_server(settings: Settings) -> FastMCP:
             include_deleted_categories: Whether deleted-category annotations render.
             max_width: Optional requested width limit.
             max_height: Optional requested height limit.
+            show_grid: Whether to overlay a grid of five major cells per axis,
+                each subdivided into five intervals with marked intersections.
 
         Returns:
             A tool result containing overlay PNG content and structured metadata.
@@ -490,6 +503,7 @@ def create_server(settings: Settings) -> FastMCP:
             include_deleted_categories,
             max_width,
             max_height,
+            show_grid,
         )
         return _preview_result(image, AnnotationPreviewMetadata, metadata)
 

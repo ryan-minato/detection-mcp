@@ -123,3 +123,29 @@ def test_rotated_preview_marks_vertices(tmp_path: Path) -> None:
     rotated = Image.open(BytesIO(rotated_data))
     assert bbox.getpixel((78, 78)) == (255, 255, 255)
     assert rotated.getpixel((78, 78)) != (255, 255, 255)
+
+
+def test_preview_grid_has_five_major_cells_and_five_minor_divisions(tmp_path: Path) -> None:
+    image_path = tmp_path / "image.png"
+    Image.new("RGB", (250, 250), "black").save(image_path)
+
+    without_grid, _ = render_preview(
+        image_path,
+        maximum_width=250,
+        maximum_height=250,
+        allow_upscale=False,
+        show_grid=False,
+    )
+    with_grid, _ = render_preview(
+        image_path,
+        maximum_width=250,
+        maximum_height=250,
+        allow_upscale=False,
+    )
+
+    plain = Image.open(BytesIO(without_grid))
+    gridded = Image.open(BytesIO(with_grid))
+    assert plain.getpixel((50, 50)) == (0, 0, 0)
+    assert gridded.getpixel((50, 50)) != (0, 0, 0)
+    assert gridded.getpixel((10, 10)) != (0, 0, 0)
+    assert gridded.getpixel((11, 11)) == (0, 0, 0)
