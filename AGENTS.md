@@ -20,8 +20,9 @@ scripts/              Repository validation commands
   repositories own SQLite statements.
 - Write code, comments, agent-facing files, commits, issues, and pull requests in
   English. Keep `README.md` and `README.zh-CN.md` synchronized.
-- Develop behavior changes test-first and follow the comment and docstring rules
-  in `.agents/knowledge/quality.md`.
+- Develop product behavior changes in `src/detection_mcp` test-first and follow the
+  comment and docstring rules in `.agents/knowledge/quality.md`. Harness scripts,
+  hooks, CI, and repository metadata require relevant validation, not TDD.
 - Never modify, move, rename, or delete dataset images. Resolve and validate paths
   before opening them, including symlink targets.
 - Write protocol output only to stdout. Send logs and diagnostics to stderr.

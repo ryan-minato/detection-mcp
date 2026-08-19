@@ -5,9 +5,9 @@ hooks, CI, dependencies, or release checks.
 
 ## Test-Driven Development
 
-Use test-driven development for features, bug fixes, and behavior changes. Work
-through one vertical slice at a time instead of writing all tests or all
-implementation in separate batches:
+Use test-driven development for product behavior in `src/detection_mcp`: features,
+bug fixes, and behavior changes. Work through one vertical slice at a time instead
+of writing all tests or all implementation in separate batches:
 
 1. **Define the seam.** Identify the public interface where callers observe the
    behavior and state the behavior in caller-facing language. Use an existing
@@ -24,14 +24,18 @@ implementation in separate batches:
    affected tests after every refactor.
 5. Repeat the cycle for the next behavior, then run the complete quality gate.
 
-For bug fixes, the red test must reproduce the reported defect before the fix is
-implemented. For behavior-preserving refactors, first establish a green baseline;
-add a characterization test when the behavior is not already protected.
+For application bug fixes, the red test must reproduce the reported defect before
+the fix is implemented. For application behavior-preserving refactors, first
+establish a green baseline; add a characterization test when the behavior is not
+already protected.
 
 Documentation-only, comment-only, and non-behavioral metadata changes do not need
 a deliberately failing test, but they still require the relevant validation.
-Exploratory code may be used to learn, but discard it before implementation and
-restart from a failing test.
+Harness work—including scripts, task runners, hooks, CI, and repository
+metadata—does not require TDD. Validate it through the command or hook it changes;
+add automated coverage only when it has independent maintenance value.
+Exploratory application code may be used to learn, but discard it before
+implementation and restart from a failing test.
 
 Record the tested seam, the expected red failure, and the commands that produced
 the final green result in the work handoff or pull request. Never weaken, delete,
