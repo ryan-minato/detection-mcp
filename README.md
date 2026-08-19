@@ -43,7 +43,24 @@ Use an installed executable and grant only the directories the task needs:
 }
 ```
 
-The server uses STDIO: protocol messages go to stdout and logs go to stderr. CLI options override `DETECTION_MCP_*` environment variables. See [configuration](docs/configuration.md) for all settings.
+The server uses STDIO: protocol messages go to stdout and logs go to stderr. CLI options override `DETECTION_MCP_*` environment variables, followed by built-in defaults.
+
+### Configuration reference
+
+| Purpose | CLI | Environment | Default |
+|---|---|---|---|
+| SQLite file | `--db-path` | `DETECTION_MCP_DB_PATH` | platform user-data directory |
+| Dataset roots | repeated `--allowed-dataset-root` | `DETECTION_MCP_ALLOWED_DATASET_ROOTS` | unrestricted |
+| Export roots | repeated `--allowed-export-root` | `DETECTION_MCP_ALLOWED_EXPORT_ROOTS` | unrestricted |
+| Random order seed | `--random-seed` | `DETECTION_MCP_RANDOM_SEED` | `42` |
+| Preview width | `--preview-max-width` | `DETECTION_MCP_PREVIEW_MAX_WIDTH` | `768` |
+| Preview height | `--preview-max-height` | `DETECTION_MCP_PREVIEW_MAX_HEIGHT` | `768` |
+| Rotated correction | `--rotated-correction-enabled` / `--no-rotated-correction` | `DETECTION_MCP_ROTATED_CORRECTION_ENABLED` | enabled |
+| Correction threshold | `--rotated-correction-threshold` | `DETECTION_MCP_ROTATED_CORRECTION_THRESHOLD` | `0.01` |
+| Rejection threshold | `--rotated-error-threshold` | `DETECTION_MCP_ROTATED_ERROR_THRESHOLD` | `0.05` |
+| Logging | `--log-level` | `DETECTION_MCP_LOG_LEVEL` | `INFO` |
+
+Environment root lists use the operating-system path separator. Empty allowed-root lists retain the portable default, but deployments should configure explicit roots. Dataset permission never grants export permission. Run `detection-mcp --version` without starting an MCP session.
 
 ## Annotation workflow
 
@@ -75,7 +92,23 @@ The default installation is project-local. Add `--global` when the Skill should 
 | Annotations | `list_annotations`, three bbox tools, and three rotated-bbox tools |
 | Export | `export_metadata_jsonl` |
 
-See the complete [tool reference](docs/tool-reference.md) and [export format](docs/export-format.md).
+Every ordinary success returns `{ "ok": true, "data": ... }`. Domain failures return `{ "ok": false, "error": { "code": ..., "message": ... } }` as an MCP error result. Preview tools return PNG image content plus the same structured envelope. The schemas returned by `list_tools` are the machine-readable contract.
+
+## Export format
+
+`export_metadata_jsonl` exports only images marked `completed`. It writes to a temporary file, flushes it, and atomically replaces the destination while holding an exclusive lock file.
+
+### AutoTrain mode
+
+AutoTrain mode requires at least five completed images in a flat dataset root. Files must use `.jpg`, `.jpeg`, or `.png`. Each JSONL object contains `file_name` and `objects`; bbox values are pixel `[x, y, width, height]` coordinates and categories are zero-based export indices.
+
+Rotated boxes are not representable in the AutoTrain bbox schema. They are counted in `ignored_rotated_annotations` and omitted. Images without annotations remain negative samples with empty arrays.
+
+### Extended mode
+
+Extended mode also emits `polygon` and `polygon_category` arrays. Each polygon is eight pixel coordinates in canonical point order. Nested portable image paths and WebP images are allowed.
+
+Deleted-category annotations are excluded and reported. Existing output is rejected unless `overwrite=true`; a concurrent lock is also reported as an existing-output error.
 
 ## Development commands
 
@@ -94,7 +127,17 @@ Never bypass Git hooks. Every commit requires the full quality gate and a staged
 
 ## Containers
 
-The production image runs as a non-root user. Dataset mounts must be read-only, while state and exports require separate writable mounts. See [Docker deployment](docs/docker.md) and `docker-compose.example.yml`.
+The production image runs as the non-root `detection-mcp` system user and starts the STDIO server directly. Set two host paths and launch the example:
+
+```bash
+export DETECTION_MCP_DATASET_PATH=/srv/datasets
+export DETECTION_MCP_OUTPUT_PATH=/srv/detection-mcp-output
+docker compose -f docker-compose.example.yml run --rm detection-mcp
+```
+
+The example mounts `/datasets` read-only, `/output` writable, and `/state` from a named persistent volume. Pass container paths such as `/datasets/coco-subset` and `/output/metadata.jsonl` to MCP tools; host paths are not visible inside the container.
+
+An MCP desktop client can use `docker run --interactive` with the same mounts as its STDIO command. Do not mount a home directory or filesystem root. The database must not share the read-only dataset mount. Back up the state volume and export output independently; source images remain outside this server's ownership.
 
 ## License
 

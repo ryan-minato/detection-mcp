@@ -16,6 +16,10 @@ Skills, packaging, or devcontainer behavior that may have changed.
 | GitHub container publishing | <https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images> | GHCR authentication, permissions, and image publication; verified 2026-08-18 |
 | PyPI publish Action | <https://github.com/pypa/gh-action-pypi-publish> | Trusted publishing and isolated publish jobs; verified 2026-08-18 |
 
+Revalidate an upstream source before changing the behavior it governs. Prefer the
+project FastMCP documentation server for FastMCP questions; it is read-only except
+for feedback submission, which requires explicit approval.
+
 ## Project Methods
 
 - Test-driven development: use the upstream

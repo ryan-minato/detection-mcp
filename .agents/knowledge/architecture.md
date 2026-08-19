@@ -40,3 +40,17 @@ about FastMCP.
   are never reused.
 - Source images are opened read-only. Temporary output is written only under the
   state directory, system temporary storage, or an allowed export directory.
+- Tool success responses use the stable `{ "ok": true, "data": ... }` envelope;
+  domain failures use stable business error codes. Preview responses include PNG
+  image content alongside that envelope.
+- Exports atomically replace their destination while holding an exclusive lock.
+  Existing output requires explicit overwrite permission.
+
+## Operational Baseline
+
+- The server uses the STDIO transport: protocol output is written only to stdout
+  and diagnostics only to stderr.
+- CLI options override `DETECTION_MCP_*` environment variables, which override
+  built-in defaults. Dataset and export root permissions are independent.
+- The container runs as a non-root user. Dataset mounts are read-only; state and
+  export mounts are separate writable locations.

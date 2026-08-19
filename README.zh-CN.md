@@ -43,7 +43,24 @@ uv run pre-commit install --install-hooks --hook-type pre-commit --hook-type com
 }
 ```
 
-Server 使用 STDIO：协议消息写入 stdout，日志写入 stderr。CLI 参数优先于 `DETECTION_MCP_*` 环境变量。全部设置见[配置文档](docs/configuration.md)。
+Server 使用 STDIO：协议消息写入 stdout，日志写入 stderr。CLI 参数优先于 `DETECTION_MCP_*` 环境变量，环境变量优先于内置默认值。
+
+### 配置参考
+
+| 用途 | CLI | 环境变量 | 默认值 |
+|---|---|---|---|
+| SQLite 文件 | `--db-path` | `DETECTION_MCP_DB_PATH` | 平台用户数据目录 |
+| 数据集根目录 | 可重复使用 `--allowed-dataset-root` | `DETECTION_MCP_ALLOWED_DATASET_ROOTS` | 不限制 |
+| 导出根目录 | 可重复使用 `--allowed-export-root` | `DETECTION_MCP_ALLOWED_EXPORT_ROOTS` | 不限制 |
+| 随机排序种子 | `--random-seed` | `DETECTION_MCP_RANDOM_SEED` | `42` |
+| 预览宽度 | `--preview-max-width` | `DETECTION_MCP_PREVIEW_MAX_WIDTH` | `768` |
+| 预览高度 | `--preview-max-height` | `DETECTION_MCP_PREVIEW_MAX_HEIGHT` | `768` |
+| 旋转框校正 | `--rotated-correction-enabled` / `--no-rotated-correction` | `DETECTION_MCP_ROTATED_CORRECTION_ENABLED` | 启用 |
+| 校正阈值 | `--rotated-correction-threshold` | `DETECTION_MCP_ROTATED_CORRECTION_THRESHOLD` | `0.01` |
+| 拒绝阈值 | `--rotated-error-threshold` | `DETECTION_MCP_ROTATED_ERROR_THRESHOLD` | `0.05` |
+| 日志 | `--log-level` | `DETECTION_MCP_LOG_LEVEL` | `INFO` |
+
+环境变量中的根目录列表使用操作系统路径分隔符。空的允许根目录列表会保留便于移植的默认行为，但部署时应显式配置根目录。数据集权限不会自动授予导出权限。运行 `detection-mcp --version` 不会启动 MCP 会话。
 
 ## 标注流程
 
@@ -75,7 +92,23 @@ npx skills add ryan-minato/detection-mcp --skill detection-mcp-setup
 | 标注 | `list_annotations`、三个水平框 Tool、三个旋转框 Tool |
 | 导出 | `export_metadata_jsonl` |
 
-完整说明见 [Tool 参考](docs/tool-reference.md)和[导出格式](docs/export-format.md)。
+常规成功响应为 `{ "ok": true, "data": ... }`。领域错误以 MCP 错误结果返回 `{ "ok": false, "error": { "code": ..., "message": ... } }`。预览 Tool 返回 PNG 图像内容及相同的结构化响应。`list_tools` 返回的 schema 是机器可读契约。
+
+## 导出格式
+
+`export_metadata_jsonl` 只导出状态为 `completed` 的图片。它会写入临时文件、刷新内容，并在持有独占锁文件时原子替换目标文件。
+
+### AutoTrain 模式
+
+AutoTrain 模式要求平铺数据集根目录中至少有五张已完成图片。文件必须使用 `.jpg`、`.jpeg` 或 `.png`。每个 JSONL 对象包含 `file_name` 和 `objects`；bbox 使用像素坐标 `[x, y, width, height]`，类别使用从零开始的导出索引。
+
+AutoTrain 的 bbox schema 无法表达旋转框。它们会计入 `ignored_rotated_annotations` 并被省略。没有标注的图片会作为带空数组的负样本保留。
+
+### Extended 模式
+
+Extended 模式还会输出 `polygon` 和 `polygon_category` 数组。每个 polygon 为按规范点顺序排列的八个像素坐标。该模式允许嵌套的可移植图片路径和 WebP 图片。
+
+已删除类别的标注会被排除并报告。除非 `overwrite=true`，否则已有导出文件会被拒绝；并发锁也会作为已有输出错误报告。
 
 ## 开发命令
 
@@ -94,7 +127,17 @@ just check      # 依次运行 quality 和 hooks
 
 ## 容器
 
-生产镜像使用非 root 用户运行。数据集必须只读挂载，状态和导出目录则使用相互独立的可写挂载。详见 [Docker 部署](docs/docker.md)和 `docker-compose.example.yml`。
+生产镜像使用非 root 的 `detection-mcp` 系统用户运行，并直接启动 STDIO Server。设置两个宿主机路径后运行示例：
+
+```bash
+export DETECTION_MCP_DATASET_PATH=/srv/datasets
+export DETECTION_MCP_OUTPUT_PATH=/srv/detection-mcp-output
+docker compose -f docker-compose.example.yml run --rm detection-mcp
+```
+
+示例将 `/datasets` 以只读方式挂载，将 `/output` 设为可写，并为 `/state` 使用命名持久卷。向 MCP Tool 传入容器路径，例如 `/datasets/coco-subset` 和 `/output/metadata.jsonl`；容器内不能访问宿主机路径。
+
+MCP 桌面客户端可以使用带相同挂载的 `docker run --interactive` 作为 STDIO 命令。不要挂载主目录或文件系统根目录。数据库不能与只读数据集挂载共用位置。应分别备份状态卷和导出文件；原始图片不归此 Server 管理。
 
 ## 许可证
 
