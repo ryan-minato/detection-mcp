@@ -28,6 +28,22 @@ for feedback submission, which requires explicit approval.
   guidance. The project-specific workflow and exceptions are defined in
   `quality.md`. Verified 2026-08-18.
 
+## Release Automation
+
+Read this section only when changing repository release workflows or their
+permissions.
+
+- `.github/workflows/publish-container.yml` publishes
+  `ghcr.io/<owner>/<repository>` after pushes to `main` and version tags matching
+  `v*.*.*`. The default branch produces only `latest`; version tags produce
+  semantic-version image tags.
+- Container publishing uses the repository `GITHUB_TOKEN` with only `contents: read`
+  and `packages: write` permissions. Third-party Actions remain pinned to full commit
+  SHAs.
+- `.github/workflows/publish-pypi.yml` is intentionally disabled at both build and
+  publish jobs. Enable it only after an explicit project decision and configured PyPI
+  trusted publishing; do not remove either guard as part of unrelated work.
+
 The project-level `.mcp.json` registers the preferred FastMCP source as
 `fastmcp-docs`. Restart the agent session after changing that file so the host can
 rediscover the server.

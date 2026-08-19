@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS_ROOT = ROOT / "skills"
+SKILL_ROOTS = (ROOT / "skills", ROOT / ".agents" / "skills")
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_PATTERN = re.compile(r"\[[^]]*]\(([^)]+)\)")
 
@@ -64,16 +64,18 @@ def validate_skill(skill_dir: Path) -> list[str]:
 def main() -> int:
     """Validate repository Agent Skills and return a status."""
     errors: list[str] = []
-    skill_dirs = sorted(path for path in SKILLS_ROOT.iterdir() if path.is_dir()) if SKILLS_ROOT.exists() else []
+    skill_dirs = sorted(
+        path for skills_root in SKILL_ROOTS if skills_root.exists() for path in skills_root.iterdir() if path.is_dir()
+    )
     if not skill_dirs:
-        errors.append("skills: no skill directories found")
+        errors.append("no Agent Skill directories found")
     for skill_dir in skill_dirs:
         errors.extend(validate_skill(skill_dir))
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
-    print(f"Validated {len(skill_dirs)} Agent Skills.")
+    print(f"Validated {len(skill_dirs)} Agent Skills across skills/ and .agents/skills/.")
     return 0
 
 

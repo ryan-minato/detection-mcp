@@ -73,7 +73,7 @@ Server 使用 STDIO：协议消息写入 stdout，日志写入 stderr。CLI 参�
 
 ## 安装 Agent Skills
 
-Agent Skills 只保存在仓库根目录的 `skills/` 中，不包含在 Python wheel、源码分发包或容器镜像内。使用 [skills CLI](https://github.com/vercel-labs/skills) 可以直接从 GitHub 安装：
+面向 detection-mcp 使用者安装的 Agent Skills 位于仓库根目录的 `skills/` 中，不包含在 Python wheel、源码分发包或容器镜像内。使用 [skills CLI](https://github.com/vercel-labs/skills) 可以直接从 GitHub 安装：
 
 ```bash
 npx skills add ryan-minato/detection-mcp --skill object-detection-annotation

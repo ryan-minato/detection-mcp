@@ -36,7 +36,6 @@ scripts/              Repository validation commands
 | Scoping work or checking v1 boundaries | `.agents/knowledge/goals.md` |
 | Changing modules, dependencies, storage, or data flow | `.agents/knowledge/architecture.md` |
 | Changing behavior, implementation, tests, validation, hooks, or CI | `.agents/knowledge/quality.md` |
-| Creating commits, branches, issues, or pull requests | `.agents/knowledge/workflow.md` |
 | Using or upgrading FastMCP, MCP, AutoTrain, or Agent Skills | `.agents/knowledge/references.md` |
 | Adding, changing, or reviewing an MCP tool | `.agents/knowledge/tool-specs/index.md` and the matching tool specification |
 | Changing detailed product behavior | `.agents/knowledge/goals.md`, affected contract tests, and the relevant architecture or quality knowledge |
@@ -73,20 +72,6 @@ current behavior; update this knowledge when confirmed behavior changes.
 Prefer the equivalent `just` recipes for routine work (`just test`,
 `just quality`, and `just check`). Keep each recipe as a thin wrapper around the
 canonical script or tool command so CI and local execution share behavior.
-
-## Workflow
-
-- Use GitHub Flow: one issue, one focused branch, and one pull request.
-- Use English Conventional Commits. Keep each commit to one logical change and
-  never bypass hooks with `--no-verify` or equivalent options.
-- Before every commit, inspect the staged diff, run the complete local gate, and
-  scan the staged content for secrets and personal information.
-- Push once a functional slice runs, open a draft pull request, and mark it ready
-  only after its tests, documentation, and required CI pass.
-- Agents do not merge pull requests. A human reviews and merges them.
-- If sensitive information reaches a commit, follow the rollback procedure in
-  `.agents/knowledge/workflow.md`; never add a follow-up commit that leaves the
-  leaked value in history.
 
 ## Keep In Sync
 

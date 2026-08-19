@@ -15,5 +15,5 @@ information, then run:
 2. `just hooks`
 
 Never bypass Git hooks. If a check changes a file, stage the result and repeat the
-complete sequence. See `.agents/knowledge/workflow.md` for the sensitive-data
-incident procedure.
+complete sequence. Stop and report suspected sensitive information before committing
+or pushing it.
