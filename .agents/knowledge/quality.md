@@ -99,6 +99,10 @@ CI separates inexpensive quality controls from tests:
   so expensive tests run only for its latest commit.
 - Test CI covers supported Python versions, a clean wheel install, and a functional
   runtime container test. Security CI scans repository history separately.
+- `release.yml` runs for published GitHub Releases. It builds wheel, source, and
+  container artifacts once, starts both installed Python distributions through
+  STDIO, and tests the exact container image before either registry publish job can
+  run.
 
 ## Test Shape
 
@@ -106,8 +110,8 @@ CI separates inexpensive quality controls from tests:
 - Transaction tests prove all-or-nothing batch behavior.
 - MCP contract tests fix tool names and input/output schemas.
 - Packaging tests use built artifacts, not an editable checkout.
-- Docker tests prove the dataset mount remains read-only and state survives a new
-  container.
+- Docker tests prove the process is non-root, the dataset and Compose mounts remain
+  read-only, output and state are writable, and state survives a new container.
 
 The project-wide branch coverage floor is 90 percent. Explicit high-risk scenarios
 remain required even when coverage already exceeds the floor.

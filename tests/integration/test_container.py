@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -11,7 +12,8 @@ from PIL import Image
 
 pytestmark = [pytest.mark.integration, pytest.mark.docker]
 
-IMAGE = "detection-mcp:local"
+ROOT = Path(__file__).resolve().parents[2]
+IMAGE = os.environ.get("DETECTION_MCP_CONTAINER_IMAGE", "detection-mcp:local")
 
 
 def _require_runtime() -> None:
@@ -45,6 +47,73 @@ def _transport(dataset: Path, state: Path, output: Path) -> StdioTransport:
     return StdioTransport("docker", args=args)
 
 
+def test_compose_mount_contract(tmp_path: Path) -> None:
+    """Verify the example Compose file resolves to the documented mounts."""
+    _require_runtime()
+    dataset = tmp_path / "datasets"
+    output = tmp_path / "output"
+    environment = {
+        **os.environ,
+        "DETECTION_MCP_DATASET_PATH": str(dataset),
+        "DETECTION_MCP_OUTPUT_PATH": str(output),
+    }
+    result = subprocess.run(
+        ["docker", "compose", "-f", "docker-compose.example.yml", "config", "--format", "json"],
+        cwd=ROOT,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    service = json.loads(result.stdout)["services"]["detection-mcp"]
+    mounts = {mount["target"]: mount for mount in service["volumes"]}
+
+    assert mounts["/datasets"] == {
+        "type": "bind",
+        "source": str(dataset),
+        "target": "/datasets",
+        "read_only": True,
+    }
+    assert mounts["/output"] == {"type": "bind", "source": str(output), "target": "/output"}
+    assert mounts["/state"]["type"] == "volume"
+
+
+def test_container_runs_non_root_and_dataset_mount_is_read_only(tmp_path: Path) -> None:
+    """Prove the production user and dataset mount prevent source writes."""
+    _require_runtime()
+    dataset = tmp_path / "datasets"
+    dataset.mkdir()
+    dataset.chmod(0o555)
+
+    user = subprocess.run(
+        ["docker", "run", "--rm", "--entrypoint", "id", IMAGE, "-u"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    write = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--mount",
+            f"type=bind,source={dataset},target=/datasets,readonly",
+            "--entrypoint",
+            "python",
+            IMAGE,
+            "-c",
+            "from pathlib import Path; Path('/datasets/forbidden').write_text('x')",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert user.stdout.strip() != "0"
+    assert write.returncode != 0
+    assert not (dataset / "forbidden").exists()
+
+
 @pytest.mark.anyio
 async def test_container_mounts_and_state_survive_recreation(tmp_path: Path) -> None:
     """Exercise annotation, preview, export, and persisted state through Docker."""
@@ -58,6 +127,8 @@ async def test_container_mounts_and_state_survive_recreation(tmp_path: Path) -> 
     output.chmod(0o777)
     image_path = dataset / "image.png"
     Image.new("RGB", (40, 20), "white").save(image_path)
+    image_path.chmod(0o444)
+    dataset.chmod(0o555)
     source_digest = hashlib.sha256(image_path.read_bytes()).digest()
 
     async with Client(_transport(dataset, state, output)) as client:

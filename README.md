@@ -8,16 +8,16 @@
 
 The v1 implementation is available for review. It exposes 23 tools for datasets, categories, images, axis-aligned boxes, rotated boxes, previews, and export. The package targets Python 3.12 or newer and uses `fastmcp>=3.4.7,<4.0.0`, allowing compatible 3.x security updates.
 
-## Install from this repository
+## Install
 
-Install [uv](https://docs.astral.sh/uv/), then run:
+Install [uv](https://docs.astral.sh/uv/), then install the published package:
 
 ```bash
-uv tool install .
+uv tool install detection-mcp
 detection-mcp --version
 ```
 
-For repository development:
+For repository development, clone the project and run:
 
 ```bash
 uv sync --locked --all-groups
@@ -129,7 +129,14 @@ Never bypass Git hooks. Every commit requires the full quality gate and a staged
 
 ## Containers
 
-The production image runs as the non-root `detection-mcp` system user and starts the STDIO server directly. Set two host paths and launch the example:
+Release images are published to GitHub Container Registry. Pull `latest` for the
+current stable release or use a version tag for a fixed release:
+
+```bash
+docker pull ghcr.io/ryan-minato/detection-mcp:latest
+```
+
+The production image runs as the non-root `detection-mcp` system user and starts the STDIO server directly. To build it from this repository, set two host paths and launch the example:
 
 ```bash
 export DETECTION_MCP_DATASET_PATH=/srv/datasets
