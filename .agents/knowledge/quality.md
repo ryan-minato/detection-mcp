@@ -78,7 +78,8 @@ order:
 2. ty type checking over `src` and `tests`.
 3. Unit and non-container integration tests with branch coverage.
 4. Agent Skill structure and link validation.
-5. Wheel and source distribution build verification.
+5. MCP tool-specification coverage and structure validation.
+6. Wheel and source distribution build verification.
 
 Run `just hooks` after staging so
 repository hygiene and sensitive-data hooks see the exact candidate content.

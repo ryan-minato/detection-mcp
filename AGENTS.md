@@ -38,6 +38,7 @@ scripts/              Repository validation commands
 | Changing behavior, implementation, tests, validation, hooks, or CI | `.agents/knowledge/quality.md` |
 | Creating commits, branches, issues, or pull requests | `.agents/knowledge/workflow.md` |
 | Using or upgrading FastMCP, MCP, AutoTrain, or Agent Skills | `.agents/knowledge/references.md` |
+| Adding, changing, or reviewing an MCP tool | `.agents/knowledge/tool-specs/index.md` and the matching tool specification |
 | Changing detailed product behavior | `.agents/knowledge/goals.md`, affected contract tests, and the relevant architecture or quality knowledge |
 
 The project registers the `fastmcp-docs` documentation server in `.mcp.json`.
@@ -64,6 +65,7 @@ current behavior; update this knowledge when confirmed behavior changes.
 | Lint | `uv run ruff check .` |
 | Types | `uv run ty check` |
 | Tests | `uv run pytest` |
+| Tool specifications | `uv run python scripts/validate_tool_specs.py` |
 | CI quality controls | `just quality-control` |
 | Complete local gate | `uv run python scripts/quality.py` |
 | Repository hooks | `uv run pre-commit run --all-files --show-diff-on-failure` |
@@ -90,7 +92,7 @@ canonical script or tool command so CI and local execution share behavior.
 
 | When this changes | Update in the same change |
 |---|---|
-| Tool name, schema, or behavior | Tool reference, product Skills, and contract tests |
+| Tool name, schema, or behavior | Tool-spec index and matching specification, product Skills, and contract tests |
 | File under `skills/` | Skill validation and README installation instructions |
 | CLI or environment setting | Both READMEs, configuration docs, and container examples |
 | Architecture or module boundary | Architecture knowledge and affected tests |
