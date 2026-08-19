@@ -27,9 +27,16 @@ request, or merge.
 4. Commit only after every required check passes and the user authorized the commit.
    If a scan finds or suggests sensitive content, stop without committing or pushing
    and use the `sensitive-data-incident` Skill.
-5. Push only after the functional slice runs and the user authorized the push. Open
-   an English draft pull request when authorized; mark it ready only after tests,
-   documentation, and required CI pass. Wait for human review and never merge.
+5. Push only after the functional slice runs and the user authorized the push.
+   Before opening a pull request, read `.github/pull_request_template.md` and use
+   its complete section structure for the English PR body. Replace every
+   instruction comment and placeholder with facts from the change; retain unchecked
+   items for checks not run and explain why. Fill `Closes #<issue-number>` only when
+   the linked issue is confirmed. Create the PR with the completed template body
+   explicitly, not a freeform summary or an automatic-fill option. Re-read the
+   created PR body and correct it if a template section, applicable checklist item,
+   or safety statement is absent. Mark it ready only after tests, documentation,
+   and required CI pass. Wait for human review and never merge.
 
 Done when: the authorized delivery action is complete, all required checks passed,
 and no unrelated or sensitive content was included.
@@ -39,6 +46,7 @@ and no unrelated or sensitive content was included.
 - A successful local test run does not authorize an external Git action.
 - A hook may modify tracked files. Do not commit its result until the staged diff has
   been inspected again.
+- GitHub CLI automatic-fill options do not replace the repository PR template.
 
 ## Maintenance
 
