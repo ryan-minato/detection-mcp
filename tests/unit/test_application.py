@@ -197,6 +197,16 @@ def test_category_edit_restore_and_validation(application: Application, image_ro
         assert captured.value.code is ErrorCode.INVALID_ARGUMENT
 
 
+def test_edit_category_preserves_deleted_state(application: Application, image_root: Path) -> None:
+    dataset_id, category_id = _dataset_and_category(application, image_root)
+    application.delete_category(dataset_id, category_id)
+
+    edited = application.edit_category(dataset_id, category_id, description="Historical category")
+
+    assert edited["description"] == "Historical category"
+    assert edited["deleted_at"] is not None
+
+
 def test_annotation_full_lifecycle_and_filters(application: Application, image_root: Path) -> None:
     dataset = application.create_dataset(str(image_root))
     dataset_id = dataset["dataset_id"]

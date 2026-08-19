@@ -35,6 +35,10 @@ test-cov:
 skills:
     uv run python scripts/validate_skills.py
 
+# Validate MCP tool-specification coverage and structure.
+tool-specs:
+    uv run python scripts/validate_tool_specs.py
+
 # Build and inspect wheel and source distributions.
 build:
     uv run python scripts/verify_build.py
@@ -48,7 +52,7 @@ quality:
     uv run python scripts/quality.py
 
 # Run CI quality controls without the test suite.
-quality-control: format-check lint typecheck skills build sensitive
+quality-control: format-check lint typecheck skills tool-specs build sensitive
 
 # Run all repository hooks against tracked files.
 hooks:

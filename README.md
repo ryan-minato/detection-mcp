@@ -73,7 +73,9 @@ Environment root lists use the operating-system path separator. Empty allowed-ro
 
 ## Install the Agent Skills
 
-The Agent Skills live only in the repository's root `skills/` directory. They are not included in the Python wheel, source distribution, or container image. Install either Skill directly from GitHub with the [skills CLI](https://github.com/vercel-labs/skills):
+The installable Agent Skills for detection-mcp users live in the repository's root
+`skills/` directory. They are not included in the Python wheel, source distribution,
+or container image. Install either Skill directly from GitHub with the [skills CLI](https://github.com/vercel-labs/skills):
 
 ```bash
 npx skills add ryan-minato/detection-mcp --skill object-detection-annotation

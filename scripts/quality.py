@@ -18,6 +18,7 @@ COMMANDS: tuple[tuple[str, ...], ...] = (
         "--cov-fail-under=90",
     ),
     ("uv", "run", "python", "scripts/validate_skills.py"),
+    ("uv", "run", "python", "scripts/validate_tool_specs.py"),
     ("uv", "run", "python", "scripts/verify_build.py"),
     ("uv", "run", "python", "scripts/check_sensitive.py"),
 )
