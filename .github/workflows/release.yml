@@ -41,7 +41,6 @@ jobs:
           name: python-package-distributions
           path: dist/
           if-no-files-found: error
-          retention-days: 1
 
   package-test:
     name: Test ${{ matrix.package-format }} distribution

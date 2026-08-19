@@ -33,6 +33,21 @@ def _require_runtime() -> None:
         pytest.skip(message)
 
 
+def _require_compose() -> None:
+    """Require Docker Compose, failing only in CI."""
+    if shutil.which("docker") is None:
+        if os.environ.get("CI"):
+            pytest.fail("docker executable is unavailable")
+        pytest.skip("docker executable is unavailable")
+    result = subprocess.run(["docker", "compose", "version"], check=False, capture_output=True, text=True)
+    if result.returncode == 0:
+        return
+    message = result.stderr.strip() or result.stdout.strip() or "docker compose is unavailable"
+    if os.environ.get("CI"):
+        pytest.fail(message)
+    pytest.skip(message)
+
+
 def _transport(dataset: Path, state: Path, output: Path) -> StdioTransport:
     """Create a Docker-backed STDIO transport with the production mounts."""
     mounts = [
@@ -49,7 +64,7 @@ def _transport(dataset: Path, state: Path, output: Path) -> StdioTransport:
 
 def test_compose_mount_contract(tmp_path: Path) -> None:
     """Verify the example Compose file resolves to the documented mounts."""
-    _require_runtime()
+    _require_compose()
     dataset = tmp_path / "datasets"
     output = tmp_path / "output"
     environment = {
@@ -83,7 +98,7 @@ def test_container_runs_non_root_and_dataset_mount_is_read_only(tmp_path: Path) 
     _require_runtime()
     dataset = tmp_path / "datasets"
     dataset.mkdir()
-    dataset.chmod(0o555)
+    dataset.chmod(0o777)
 
     user = subprocess.run(
         ["docker", "run", "--rm", "--entrypoint", "id", IMAGE, "-u"],
