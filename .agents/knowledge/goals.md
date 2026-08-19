@@ -10,9 +10,20 @@ agent register image datasets, define categories, track image status, create and
 review axis-aligned or rotated bounding boxes, and export training metadata. It
 stores its own state in SQLite and never changes source images.
 
+## Product Contract
+
+- The v1 public surface is exactly 23 MCP tools: 5 dataset, 6 category, 4 image
+  and review, 7 annotation, and 1 export tool. MCP contract tests define their
+  names and input/output schemas.
+- Axis-aligned boxes use normalized `xyxy`; rotated boxes use normalized
+  four-point polygons. Writes validate immediately; batch writes are atomic.
+- Images move between `unannotated`, `in_progress`, and `completed`. Export
+  preflights the dataset and exports only completed images.
+- `autotrain` exports its compatible flat-image JSONL subset. `extended` also
+  represents rotated boxes and portable nested paths.
+
 ## v1 Boundaries
 
-- Implement exactly the 23 tools defined in `docs/requirements.zh-CN.md`.
 - Support PyPI and Docker installation. Docker runs as a non-root user with
   read-only datasets and separate writable state and output mounts.
 - Use normalized `xyxy` for axis-aligned boxes and normalized four-point polygons
@@ -25,7 +36,8 @@ Do not add HTTP deployment, authentication, multi-tenancy, image fingerprinting,
 annotation history, undo, arbitrary polygons, segmentation, dataset splits, or a
 GUI in v1.
 
-## Acceptance Source
+## Authority
 
-`docs/requirements.zh-CN.md` is the product behavior source of truth. If code and
-that document disagree, stop and resolve the discrepancy in the active change.
+Executable tests define current behavior. This knowledge base records the intended
+product contract and must be updated when confirmed behavior changes. If a test and
+this document disagree, investigate the discrepancy before changing either one.

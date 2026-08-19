@@ -10,7 +10,6 @@ src/detection_mcp/    Python package and MCP server
 tests/                Unit, integration, packaging, and container tests
 skills/               Installable Agent Skills published from the repository
 .agents/knowledge/    Agent-facing project knowledge
-docs/                 Human-facing technical documentation
 scripts/              Repository validation commands
 ```
 
@@ -38,11 +37,14 @@ scripts/              Repository validation commands
 | Changing behavior, implementation, tests, validation, hooks, or CI | `.agents/knowledge/quality.md` |
 | Creating commits, branches, issues, or pull requests | `.agents/knowledge/workflow.md` |
 | Using or upgrading FastMCP, MCP, AutoTrain, or Agent Skills | `.agents/knowledge/references.md` |
-| Changing detailed product behavior | `docs/requirements.zh-CN.md` |
+| Changing detailed product behavior | `.agents/knowledge/goals.md`, affected contract tests, and the relevant architecture or quality knowledge |
 
 The project registers the `fastmcp-docs` documentation server in `.mcp.json`.
 Use it first for FastMCP API and behavior questions. Its feedback tool changes
 external state; do not call that tool without explicit user approval.
+
+`.agents/knowledge/` is the only project knowledge base. Executable tests define
+current behavior; update this knowledge when confirmed behavior changes.
 
 ## Development Environment
 

@@ -104,3 +104,13 @@ CI separates inexpensive quality controls from tests:
 
 The project-wide branch coverage floor is 90 percent. Explicit high-risk scenarios
 remain required even when coverage already exceeds the floor.
+
+## Acceptance And Diagnostics
+
+- Treat MCP contract tests as the executable definition of the tool surface and
+  response schemas. Preserve stable business error codes when changing behavior.
+- Keep operational logs structured and on stderr. Never emit diagnostics on the
+  STDIO protocol stream.
+- Verify source-image immutability, path containment after symlink resolution,
+  transaction rollback, orientation-corrected dimensions, and atomic export in
+  their relevant test layers.
