@@ -14,7 +14,12 @@ Skills, packaging, or devcontainer behavior that may have changed.
 | uv build backend | <https://docs.astral.sh/uv/configuration/build-backend/> | Package and data-file inclusion |
 | Dev Containers | <https://containers.dev/implementors/json_reference/> | Development container properties |
 | GitHub container publishing | <https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images> | GHCR authentication, permissions, and image publication; verified 2026-08-18 |
-| PyPI publish Action | <https://github.com/pypa/gh-action-pypi-publish> | Trusted publishing and isolated publish jobs; verified 2026-08-18 |
+| GitHub OIDC | <https://docs.github.com/en/actions/concepts/security/openid-connect> | Short-lived deployment identity and job permissions; verified 2026-08-19 |
+| GitHub environments | <https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments> | Deployment approvals and tag restrictions; verified 2026-08-19 |
+| PyPI Trusted Publishers | <https://docs.pypi.org/trusted-publishers/using-a-publisher/> | OIDC permissions and isolated publish jobs; verified 2026-08-19 |
+| PyPI pending publishers | <https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/> | First release of a new project through OIDC; verified 2026-08-19 |
+| PyPI publish Action | <https://github.com/pypa/gh-action-pypi-publish> | Trusted publishing Action behavior; verified 2026-08-19 |
+| Docker image metadata | <https://github.com/docker/metadata-action> | PEP 440 image tags and stable `latest` generation; verified 2026-08-19 |
 
 Revalidate an upstream source before changing the behavior it governs. Prefer the
 project FastMCP documentation server for FastMCP questions; it is read-only except
@@ -33,16 +38,18 @@ for feedback submission, which requires explicit approval.
 Read this section only when changing repository release workflows or their
 permissions.
 
-- `.github/workflows/publish-container.yml` publishes
-  `ghcr.io/<owner>/<repository>` after pushes to `main` and version tags matching
-  `v*.*.*`. The default branch produces only `latest`; version tags produce
-  semantic-version image tags.
+- `.github/workflows/release.yml` runs only when a GitHub Release is published. The
+  tag must equal `v<project version>`. Main-branch pushes do not publish packages.
+- The workflow builds wheel, source distribution, and container artifacts once. It
+  installs and starts both Python distributions and tests the exact saved container
+  image before either publish job runs.
+- PyPI publishing uses the protected `pypi` environment and job-scoped
+  `id-token: write`; it has no stored publishing credential. The pending publisher
+  must name `release.yml` and the `pypi` environment exactly.
 - Container publishing uses the repository `GITHUB_TOKEN` with only `contents: read`
-  and `packages: write` permissions. Third-party Actions remain pinned to full commit
+  and `packages: write`. PEP 440 releases receive an exact version tag; only stable
+  releases also receive `latest`. Third-party Actions remain pinned to full commit
   SHAs.
-- `.github/workflows/publish-pypi.yml` is intentionally disabled at both build and
-  publish jobs. Enable it only after an explicit project decision and configured PyPI
-  trusted publishing; do not remove either guard as part of unrelated work.
 
 The project-level `.mcp.json` registers the preferred FastMCP source as
 `fastmcp-docs`. Restart the agent session after changing that file so the host can

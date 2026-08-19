@@ -1,0 +1,193 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  package-build:
+    name: Build Python distributions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.12.5"
+      - name: Verify release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: test "v$(uv version --short)" = "$RELEASE_TAG"
+      - name: Build distributions
+        run: uv build --no-sources --out-dir dist
+      - name: Store distributions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+
+  package-test:
+    name: Test ${{ matrix.package-format }} distribution
+    needs: package-build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package-format: [wheel, sdist]
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.12.5"
+          enable-cache: true
+      - name: Retrieve distributions
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Synchronize test environment
+        run: uv sync --locked --all-groups
+      - name: Install distribution in a clean environment
+        env:
+          PACKAGE_FORMAT: ${{ matrix.package-format }}
+        run: |
+          if [[ "$PACKAGE_FORMAT" == "wheel" ]]; then
+            package_path=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          else
+            package_path=$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)
+          fi
+          test -n "$package_path"
+          uv venv clean-venv
+          uv pip install --python clean-venv/bin/python "$package_path"
+          clean-venv/bin/detection-mcp --version
+      - name: Start and verify installed STDIO server
+        env:
+          DETECTION_MCP_STDIO_COMMAND: ${{ github.workspace }}/clean-venv/bin/detection-mcp
+        run: uv run pytest tests/integration/test_stdio.py
+
+  container-test:
+    name: Build and test container image
+    needs: package-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.12.5"
+          enable-cache: true
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+      - name: Synchronize locked environment
+        run: just sync
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build release image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: detection-mcp:release
+      - name: Start and verify container runtime
+        env:
+          DETECTION_MCP_CONTAINER_IMAGE: detection-mcp:release
+        run: just docker-test
+      - name: Export tested image
+        run: docker save --output detection-mcp-image.tar detection-mcp:release
+      - name: Store tested image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: detection-mcp-container-image
+          path: detection-mcp-image.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [package-test, container-test]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/detection-mcp
+    permissions:
+      id-token: write
+    steps:
+      - name: Retrieve distributions
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish distributions
+        uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
+
+  publish-container:
+    name: Publish to GitHub Container Registry
+    needs: [package-test, container-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Retrieve tested image
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: detection-mcp-container-image
+      - name: Load tested image
+        run: docker load --input detection-mcp-image.tar
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate image metadata
+        id: metadata
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: latest=auto
+          tags: type=pep440,pattern={{version}}
+      - name: Publish tested image
+        env:
+          IMAGE_TAGS: ${{ steps.metadata.outputs.tags }}
+        run: |
+          while IFS= read -r tag; do
+            test -n "$tag" || continue
+            docker tag detection-mcp:release "$tag"
+            docker push "$tag"
+          done <<< "$IMAGE_TAGS"

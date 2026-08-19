@@ -33,29 +33,41 @@ def test_quality_control_runs_for_all_pushes_and_pull_requests() -> None:
     assert "if" not in workflow["jobs"]["quality-control"]
 
 
-def test_container_publish_workflow_has_safe_release_contract() -> None:
-    workflow = _load_workflow("publish-container.yml")
+def test_release_workflow_tests_built_artifacts_before_publishing() -> None:
+    workflow = _load_workflow("release.yml")
 
-    assert workflow["on"] == {"push": {"branches": ["main"], "tags": ["v*.*.*"]}}
-    assert workflow["permissions"] == {"contents": "read", "packages": "write"}
+    assert workflow["on"] == {"release": {"types": ["published"]}}
+    assert workflow["permissions"] == {"contents": "read"}
 
-    steps = workflow["jobs"]["publish"]["steps"]
-    metadata = next(step for step in steps if step.get("id") == "metadata")
+    jobs = workflow["jobs"]
+    version_step = next(step for step in jobs["package-build"]["steps"] if step["name"] == "Verify release version")
+    assert 'test "v$(uv version --short)" = "$RELEASE_TAG"' in version_step["run"]
+    assert jobs["package-test"]["strategy"]["matrix"]["package-format"] == ["wheel", "sdist"]
+    assert jobs["package-test"]["needs"] == "package-build"
+    assert jobs["container-test"]["needs"] == "package-build"
+
+    required_tests = ["package-test", "container-test"]
+    assert jobs["publish-pypi"]["needs"] == required_tests
+    assert jobs["publish-container"]["needs"] == required_tests
+
+
+def test_release_workflow_uses_minimal_publish_permissions() -> None:
+    workflow = _load_workflow("release.yml")
+    jobs = workflow["jobs"]
+
+    pypi = jobs["publish-pypi"]
+    assert pypi["permissions"] == {"id-token": "write"}
+    assert pypi["environment"] == {"name": "pypi", "url": "https://pypi.org/p/detection-mcp"}
+    assert "password" not in str(pypi)
+    assert "token" not in str(pypi["steps"])
+
+    container = jobs["publish-container"]
+    assert container["permissions"] == {"contents": "read", "packages": "write"}
+    metadata = next(step for step in container["steps"] if step.get("id") == "metadata")
     assert metadata["with"]["images"] == "ghcr.io/${{ github.repository }}"
-    assert "type=semver,pattern={{version}}" in metadata["with"]["tags"]
-    assert "type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}" in metadata["with"]["tags"]
-    assert next(step for step in steps if step["name"] == "Build and publish image")["with"]["push"] == "true"
-    _assert_actions_are_pinned(workflow)
+    assert metadata["with"]["flavor"] == "latest=auto"
+    assert metadata["with"]["tags"] == "type=pep440,pattern={{version}}"
 
-
-def test_pypi_publish_workflow_cannot_publish() -> None:
-    workflow = _load_workflow("publish-pypi.yml")
-
-    assert workflow["on"] == {"workflow_dispatch": ""}
-    assert workflow["jobs"]["build"]["if"] == "${{ false }}"
-    assert workflow["jobs"]["publish"]["if"] == "${{ false }}"
-    assert workflow["jobs"]["publish"]["permissions"] == {"id-token": "write"}
-    assert "password" not in str(workflow["jobs"]["publish"])
     _assert_actions_are_pinned(workflow)
 
 

@@ -8,16 +8,16 @@
 
 v1 实现已可进入审查。项目提供 23 个 Tool，覆盖数据集、类别、图片、水平框、旋转框、预览和导出。包要求 Python 3.12 或更新版本，并使用 `fastmcp>=3.4.7,<4.0.0`，因此可以接收兼容的 FastMCP 3.x 安全更新。
 
-## 从本仓库安装
+## 安装
 
-安装 [uv](https://docs.astral.sh/uv/) 后运行：
+安装 [uv](https://docs.astral.sh/uv/) 后，安装已发布的包：
 
 ```bash
-uv tool install .
+uv tool install detection-mcp
 detection-mcp --version
 ```
 
-如果要参与仓库开发：
+如果要参与仓库开发，请克隆仓库并运行：
 
 ```bash
 uv sync --locked --all-groups
@@ -127,7 +127,13 @@ just check      # 依次运行 quality 和 hooks
 
 ## 容器
 
-生产镜像使用非 root 的 `detection-mcp` 系统用户运行，并直接启动 STDIO Server。设置两个宿主机路径后运行示例：
+Release 镜像发布到 GitHub Container Registry。使用 `latest` 获取当前稳定版，也可以通过版本标签固定版本：
+
+```bash
+docker pull ghcr.io/ryan-minato/detection-mcp:latest
+```
+
+生产镜像使用非 root 的 `detection-mcp` 系统用户运行，并直接启动 STDIO Server。要从本仓库构建镜像，请设置两个宿主机路径后运行示例：
 
 ```bash
 export DETECTION_MCP_DATASET_PATH=/srv/datasets
