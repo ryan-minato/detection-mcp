@@ -12,6 +12,13 @@ NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_PATTERN = re.compile(r"\[[^]]*]\(([^)]+)\)")
 
 
+def skill_directories(skill_roots: tuple[Path, ...]) -> list[Path]:
+    """Return every direct child Skill directory from the configured roots."""
+    return sorted(
+        path for skills_root in skill_roots if skills_root.exists() for path in skills_root.iterdir() if path.is_dir()
+    )
+
+
 def validate_skill(skill_dir: Path) -> list[str]:
     """Return structural and link errors for one canonical Agent Skill."""
     errors: list[str] = []
@@ -64,9 +71,7 @@ def validate_skill(skill_dir: Path) -> list[str]:
 def main() -> int:
     """Validate repository Agent Skills and return a status."""
     errors: list[str] = []
-    skill_dirs = sorted(
-        path for skills_root in SKILL_ROOTS if skills_root.exists() for path in skills_root.iterdir() if path.is_dir()
-    )
+    skill_dirs = skill_directories(SKILL_ROOTS)
     if not skill_dirs:
         errors.append("no Agent Skill directories found")
     for skill_dir in skill_dirs:

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Change the name and/or authoritative description of an active category.
+Change the name and/or authoritative description of a category.
 
 ## Interface
 
@@ -15,13 +15,13 @@ Change the name and/or authoritative description of an active category.
 
 ## Preconditions
 
-The dataset and category must be active, and at least one replacement field must be
-provided.
+The dataset must be active, the category must exist in that dataset, and at least one
+replacement field must be provided. The category may be soft-deleted.
 
 ## Behavior and invariants
 
 Only supplied fields change. A replacement name must not conflict with another active
-category.
+category. Editing a soft-deleted category preserves its deletion state.
 
 ## Output
 
@@ -29,7 +29,7 @@ category.
 
 ## Business errors
 
-- `DATASET_NOT_FOUND`, `DATASET_DELETED`, `CATEGORY_NOT_FOUND`, or `CATEGORY_DELETED`.
+- `DATASET_NOT_FOUND`, `DATASET_DELETED`, or `CATEGORY_NOT_FOUND`.
 - `CATEGORY_NAME_CONFLICT`: the replacement name is already active.
 - `INVALID_ARGUMENT`: no change, empty name, or invalid input.
 
@@ -42,4 +42,5 @@ category.
 ## Acceptance criteria
 
 - A supplied field changes while an omitted field retains its value.
+- A soft-deleted category can be edited and remains soft-deleted.
 - Empty updates and conflicting names fail without modifying the category.

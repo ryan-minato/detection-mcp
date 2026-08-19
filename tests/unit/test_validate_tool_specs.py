@@ -55,6 +55,40 @@ def test_validate_tool_specs_reports_missing_specification_and_index_link(tmp_pa
     assert any("missing link to second_tool.md" in error for error in errors)
 
 
+def test_validate_tool_specs_reports_a_broken_index_link_path(tmp_path: Path) -> None:
+    validator = _load_validator()
+    server, specs = _valid_layout(tmp_path, validator)
+    (specs / "index.md").write_text(
+        "[First](missing/first_tool.md)\n[Second](second_tool.md)\n",
+        encoding="utf-8",
+    )
+
+    errors = validator.validate_tool_specs(server, specs)
+
+    assert any("broken link: missing/first_tool.md" in error for error in errors)
+    assert any("missing link to first_tool.md" in error for error in errors)
+
+
+def test_validate_tool_specs_reports_unparseable_server_source(tmp_path: Path) -> None:
+    validator = _load_validator()
+    server, specs = _valid_layout(tmp_path, validator)
+    server.write_text("def create_server(:\n", encoding="utf-8")
+
+    errors = validator.validate_tool_specs(server, specs)
+
+    assert any("unable to inspect MCP tool registrations" in error for error in errors)
+
+
+def test_validate_tool_specs_reports_undecodable_server_source(tmp_path: Path) -> None:
+    validator = _load_validator()
+    server, specs = _valid_layout(tmp_path, validator)
+    server.write_bytes(b"\xff")
+
+    errors = validator.validate_tool_specs(server, specs)
+
+    assert any("unable to inspect MCP tool registrations" in error for error in errors)
+
+
 def test_validate_tool_specs_reports_unknown_specification_and_missing_section(tmp_path: Path) -> None:
     validator = _load_validator()
     server, specs = _valid_layout(tmp_path, validator)

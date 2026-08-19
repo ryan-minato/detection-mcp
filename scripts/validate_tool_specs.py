@@ -37,10 +37,10 @@ def registered_tool_names(server_path: Path) -> set[str]:
     return tools
 
 
-def linked_files(index_path: Path) -> set[str]:
-    """Return local Markdown filenames linked from a tool-specification index."""
+def linked_paths(index_path: Path) -> list[tuple[str, Path]]:
+    """Return local Markdown links and their resolved targets from an index."""
     links = LINK_PATTERN.findall(index_path.read_text(encoding="utf-8"))
-    return {Path(link).name for link in links if link.endswith(".md")}
+    return [(link, (index_path.parent / link).resolve()) for link in links if link.endswith(".md")]
 
 
 def validate_tool_specs(server_path: Path, specs_root: Path) -> list[str]:
@@ -51,7 +51,10 @@ def validate_tool_specs(server_path: Path, specs_root: Path) -> list[str]:
     if not specs_root.is_dir():
         return [f"{specs_root}: tool-specification directory is missing"]
 
-    expected = registered_tool_names(server_path)
+    try:
+        expected = registered_tool_names(server_path)
+    except (OSError, UnicodeError, SyntaxError) as error:
+        return [f"{server_path}: unable to inspect MCP tool registrations: {error}"]
     documented = {path.stem for path in specs_root.glob("*.md") if path.name not in SUPPORTING_FILES}
     for name in sorted(expected - documented):
         errors.append(f"{specs_root}: missing specification for MCP tool '{name}'")
@@ -62,13 +65,18 @@ def validate_tool_specs(server_path: Path, specs_root: Path) -> list[str]:
     if not index_path.is_file():
         errors.append(f"{index_path}: missing tool-specification index")
     else:
-        indexed = linked_files(index_path)
+        index_links = linked_paths(index_path)
+        indexed = {target for _, target in index_links}
+        resolved_specs_root = specs_root.resolve()
+        for link, target in index_links:
+            if not target.is_relative_to(resolved_specs_root):
+                errors.append(f"{index_path}: link escapes tool-specification directory: {link}")
+            elif not target.is_file():
+                errors.append(f"{index_path}: broken link: {link}")
         for name in sorted(expected):
             filename = f"{name}.md"
-            if filename not in indexed:
+            if (specs_root / filename).resolve() not in indexed:
                 errors.append(f"{index_path}: missing link to {filename}")
-            elif not (specs_root / filename).is_file():
-                errors.append(f"{index_path}: broken link to {filename}")
 
     for name in sorted(documented):
         path = specs_root / f"{name}.md"
