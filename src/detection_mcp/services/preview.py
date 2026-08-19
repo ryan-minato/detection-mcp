@@ -31,6 +31,26 @@ def _color(category_id: int) -> tuple[int, int, int]:
     return (64 + digest[0] % 160, 64 + digest[1] % 160, 64 + digest[2] % 160)
 
 
+def _draw_positioning_grid(image: Image.Image) -> None:
+    """Overlay a five-by-five grid with five minor divisions per major cell."""
+    draw = ImageDraw.Draw(image, "RGBA")
+    x_positions = [min(image.width - 1, round(image.width * index / 25)) for index in range(26)]
+    y_positions = [min(image.height - 1, round(image.height * index / 25)) for index in range(26)]
+
+    for position in x_positions:
+        draw.line((position, 0, position, image.height - 1), fill=(255, 255, 255, 64))
+    for position in y_positions:
+        draw.line((0, position, image.width - 1, position), fill=(255, 255, 255, 64))
+    for x in x_positions:
+        for y in y_positions:
+            draw.point((x, y), fill=(255, 255, 255, 160))
+    for index in range(6):
+        x = min(image.width - 1, round(image.width * index / 5))
+        y = min(image.height - 1, round(image.height * index / 5))
+        draw.line((x, 0, x, image.height - 1), fill=(255, 255, 255, 128))
+        draw.line((0, y, image.width - 1, y), fill=(255, 255, 255, 128))
+
+
 def render_preview(
     image_path: Path,
     *,
@@ -38,6 +58,7 @@ def render_preview(
     maximum_height: int,
     allow_upscale: bool,
     annotations: list[dict[str, Any]] | None = None,
+    show_grid: bool = True,
 ) -> tuple[bytes, dict[str, Any]]:
     """Render an optional annotation overlay into an in-memory PNG.
 
@@ -47,6 +68,7 @@ def render_preview(
         maximum_height: Maximum preview height in pixels.
         allow_upscale: Whether previews may exceed source dimensions.
         annotations: Optional annotation records to draw over the image.
+        show_grid: Whether to overlay the positioning grid.
 
     Returns:
         PNG bytes and structured source, preview, scale, and orientation metadata.
@@ -64,6 +86,9 @@ def render_preview(
     width, height, scale = _preview_size(image, maximum_width, maximum_height, allow_upscale)
     if (width, height) != image.size:
         image = image.resize((width, height), Image.Resampling.LANCZOS)
+
+    if show_grid:
+        _draw_positioning_grid(image)
 
     # Draw stable category colors, geometry, and compact annotation labels.
     if annotations:
